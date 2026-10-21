@@ -126,7 +126,9 @@ def _git_commit() -> str:
     def git(*args: str) -> str:
         return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     commit = git("rev-parse", "--short", "HEAD")
-    return f"{commit}-dirty" if commit and git("status", "--porcelain") else commit
+    # The run log itself doesn't count as an uncommitted change.
+    dirty = git("status", "--porcelain", "--", ".", f":!{RUNS_CSV.relative_to(ROOT).as_posix()}")
+    return f"{commit}-dirty" if commit and dirty else commit
 
 
 def _num(x: float | None) -> str:
