@@ -4,6 +4,10 @@ The PDFs are not committed: they contain real buyer contact details (rule 8).
 
     python -m eval.fetch_test_rfps
 """
+import shutil
+import ssl
+import subprocess
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -24,9 +28,17 @@ def fetch(name: str, url: str) -> Path:
     path = TEST_RFPS_DIR / name
     if path.exists():
         return path
-    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(request, timeout=60) as response:
-        data = response.read()
+    try:
+        request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(request, timeout=60) as response:
+            data = response.read()
+    except urllib.error.URLError as exc:
+        # Some servers omit intermediate certificates; curl uses the OS certificate store,
+        # which can fetch them. Verification stays on either way.
+        if not isinstance(exc.reason, ssl.SSLError) or not shutil.which("curl"):
+            raise
+        data = subprocess.run(["curl", "-sSfL", "-A", "Mozilla/5.0", url],
+                              capture_output=True, check=True, timeout=120).stdout
     if not data.startswith(b"%PDF"):
         raise ValueError(f"{name}: download from {url} is not a PDF")
     path.write_bytes(data)

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from src.parse.pdf import parse_pdf
-from src.parse.sections import split_sections
+from src.parse.sections import MAX_BLOCK_CHARS, split_sections
 
 ROOT = Path(__file__).resolve().parent.parent
 TULSA_PDF = ROOT / "data" / "test_rfps" / "tulsa_rfp_26-901.pdf"
@@ -57,6 +57,40 @@ def test_named_parts_and_form_aliases() -> None:
                             "Appendix A", "Appendix A.1"]
 
 
+def test_decimal_numbering_under_sections() -> None:
+    pages = [["SECTION 1 - INTRODUCTION", "1.1 Description", "1.2 Background",
+              "SECTION 2 - NOTICE", "2.1 Deadline", "2.1.1 Register first", "2.1.1.1 Go to the site",
+              "2.2 Contact", "1.5 million users are expected."]]
+    assert _refs(pages) == ["Section 1", "Section 1.1", "Section 1.2", "Section 2", "Section 2.1",
+                            "Section 2.1.1", "Section 2.1.1.1", "Section 2.2"]
+
+
+def test_sections_inside_an_appendix_and_plain_numbers_in_decimal_mode() -> None:
+    pages = [["APPENDIX ONE - PROPOSAL REQUIREMENTS", "SECTION 2 - EXECUTION OF OFFER", "2.1 Warranties"],
+             ["APPENDIX TWO – SAMPLE AGREEMENT", "1. Scope of Work.", "1.1 Contractor will perform.",
+              "2. The Project.", "3. Time for Completion.", "4.1 Compliance with laws.",
+              "9.9 Out-of-sequence numbers are text."]]
+    assert _refs(pages) == ["Appendix One", "Appendix One.Section 2", "Appendix One.2.1",
+                            "Appendix Two", "Appendix Two.1", "Appendix Two.1.1", "Appendix Two.2",
+                            "Appendix Two.3", "Appendix Two.4.1"]
+
+
+def test_contents_lists_are_not_headings() -> None:
+    pages = [["TABLE OF CONTENTS", "SECTION 1: INTRODUCTION ........ 3", "APPENDIX ONE: REQUIREMENTS",
+              "APPENDIX TWO: AGREEMENT", "APPENDIX THREE: MAP"],
+             ["SECTION 1 - INTRODUCTION", "1.1 Purpose", "See APPENDIX ONE) for the forms."]]
+    assert _refs(pages) == ["Table Of Contents", "Section 1", "Section 1.1"]
+
+
+def test_unstructured_text_falls_back_to_pages_and_size_limit() -> None:
+    long_page = [f"Sentence {n} of a requirement with no numbering at all." for n in range(200)]
+    doc = split_sections([["A cover page"], long_page, ["Last page text"]], "test.pdf")
+    assert doc.blocks[0].ref == "Cover"
+    assert {b.ref for b in doc.blocks[1:]} == {"p.2", "p.3"}
+    assert max(len(b.text) for b in doc.blocks) <= MAX_BLOCK_CHARS
+    assert any(b.continued for b in doc.blocks if b.ref == "p.2")
+
+
 # The real Tulsa RFP ------------------------------------------------------------
 
 @pytest.fixture(scope="module")
@@ -102,3 +136,33 @@ def test_block_that_crosses_a_page(tulsa) -> None:
     (costs,) = tulsa.find("Exhibit B.6.C")
     assert (costs.page, costs.page_end) == (16, 17)
     assert "Issue Date" not in costs.text, "running header must be stripped"
+
+
+# The UTEP RFP: decimal numbering ---------------------------------------------------
+
+UTEP_PDF = ROOT / "data" / "test_rfps" / "utep_rfp_724-2605.pdf"
+
+
+@pytest.fixture(scope="module")
+def utep():
+    if not UTEP_PDF.exists():
+        pytest.skip("UTEP PDF not downloaded (python -m eval.fetch_test_rfps)")
+    return parse_pdf(UTEP_PDF)
+
+
+def test_utep_decimal_sections(utep) -> None:
+    (deadline,) = utep.find("Section 2.1")
+    assert "Submittal Deadline" in deadline.text and deadline.page == 4
+    (schedule_import,) = utep.find("Section 5.4.2.1.1")
+    assert "student information" in schedule_import.text
+
+
+def test_utep_appendix_parts(utep) -> None:
+    assert {"Appendix One.Section 2", "Appendix One.2.16", "Appendix Two.11.2.1.4",
+            "Appendix Two.12.44", "Exhibit H.2.3"} <= utep.refs()
+    assert not any(b.ref.startswith("Appendix Seven") and b.page < 54 for b in utep.blocks), \
+        "the contents list on page 2 must not open Appendix Seven"
+
+
+def test_no_block_exceeds_size_limit(utep, tulsa) -> None:
+    assert max(len(b.text) for b in [*utep.blocks, *tulsa.blocks]) <= MAX_BLOCK_CHARS
