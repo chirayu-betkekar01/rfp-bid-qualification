@@ -35,3 +35,6 @@ Thumbs.db
 # Test RFPs contain real buyer contact details (rule 8). Fetch with: python -m eval.fetch_test_rfps
 data/test_rfps/*
 !data/test_rfps/.gitkeep
+
+# LLM call log (local only)
+logs/
