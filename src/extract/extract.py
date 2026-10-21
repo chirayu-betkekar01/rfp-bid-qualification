@@ -73,7 +73,8 @@ def format_window(blocks: list[Block]) -> str:
                        for b in blocks)
 
 
-def extract(doc: ParsedDocument, client: LLMClient, model: str) -> Extraction:
+def extract(doc: ParsedDocument, client: LLMClient, model: str,
+            parallel: int = PARALLEL_CALLS) -> Extraction:
     prompt, meta_prompt = load_prompt(EXTRACT_PROMPT), load_prompt(META_PROMPT)
     groups = windows(doc.blocks)
 
@@ -83,7 +84,7 @@ def extract(doc: ParsedDocument, client: LLMClient, model: str) -> Extraction:
                                     max_tokens=ROWS_MAX_TOKENS)
 
     opening = format_window(doc.blocks)[:META_CHARS]
-    with ThreadPoolExecutor(max_workers=PARALLEL_CALLS) as pool:
+    with ThreadPoolExecutor(max_workers=parallel) as pool:
         meta_future = pool.submit(client.complete_json, purpose="extract_meta", model=model,
                                   prompt=meta_prompt, user=opening, schema=RfpMeta, max_tokens=500)
         results = list(pool.map(run, groups))

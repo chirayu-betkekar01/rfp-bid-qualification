@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 
 from src.config import ROOT
 from src.extract.extract import extract, save
-from src.llm import LLMClient
+from src.llm import CACHE_DIR, LLMClient
 from src.parse.pdf import parse_pdf
 
 SAVED_RUNS = ROOT / "logs" / "extractions"     # local copy, so a failed save doesn't lose a paid run
@@ -25,6 +25,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("pdf", type=Path)
+    parser.add_argument("--parallel", type=int, default=2, help="model calls at a time (default 2)")
     args = parser.parse_args()
 
     load_dotenv(ROOT / ".env")
@@ -35,7 +36,7 @@ def main() -> None:
     with psycopg.connect(url) as conn:       # fail on a bad DATABASE_URL before paying for model calls
         doc = parse_pdf(args.pdf)
         print(f"Parsed {doc.source_file}: {doc.page_count} pages, {len(doc.blocks)} blocks")
-        result = extract(doc, LLMClient(), model)
+        result = extract(doc, LLMClient(cache_dir=CACHE_DIR), model, parallel=args.parallel)
         saved = _keep_copy(doc.source_file, result)
         rfp_id = save(conn, doc, result)
     print(f"Saved a local copy to {saved.relative_to(ROOT)}")

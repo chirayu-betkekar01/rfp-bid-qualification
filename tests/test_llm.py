@@ -136,6 +136,16 @@ def test_cut_off_reply_is_an_error_not_a_retry(tmp_path) -> None:
         call(c)
 
 
+def test_cache_reuses_a_paid_reply_and_misses_on_any_change(tmp_path) -> None:
+    fake = FakeCreate(GOOD, GOOD)
+    c = LLMClient(create=fake, log_path=tmp_path / "calls.jsonl", cache_dir=tmp_path / "cache")
+    first, second = call(c), call(c)
+    assert len(fake.calls) == 1 and second.data == first.data and second.cost_usd == 0.0
+    c.complete_json(purpose="test", model="anthropic/claude-test", prompt=PROMPT, user=SECRET + " v2",
+                    schema=Items)
+    assert len(fake.calls) == 2, "different input must call the model again"
+
+
 def test_missing_api_key_is_a_clear_error(monkeypatch) -> None:
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
     monkeypatch.setattr("src.llm.load_dotenv", lambda *a, **k: None)

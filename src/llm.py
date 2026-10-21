@@ -8,6 +8,7 @@ model and prompt version so drafts stay traceable (rule 6).
 Prompt text never goes in the log, only sizes and IDs: prompts can contain
 buyer documents.
 """
+import hashlib
 import json
 import os
 import time
@@ -25,6 +26,7 @@ from src.config import ROOT
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 PROMPTS_DIR = ROOT / "prompts"
 CALL_LOG = ROOT / "logs" / "llm_calls.jsonl"
+CACHE_DIR = ROOT / "logs" / "llm_cache"     # replies already paid for; local only (may hold buyer text)
 
 # Never route to providers that keep or train on prompts; fail rather than fall back to one.
 PROVIDER_ROUTING = {"data_collection": "deny", "zdr": True, "require_parameters": True}
@@ -82,8 +84,13 @@ def strict_schema(model: type[BaseModel]) -> dict[str, Any]:
 
 
 class LLMClient:
-    def __init__(self, create: Callable[..., Any] | None = None, log_path: Path = CALL_LOG):
-        """`create` defaults to OpenRouter chat completions; tests pass a fake."""
+    def __init__(self, create: Callable[..., Any] | None = None, log_path: Path = CALL_LOG,
+                 cache_dir: Path | None = None):
+        """`create` defaults to OpenRouter chat completions; tests pass a fake.
+
+        With `cache_dir`, a reply is reused when model, prompt text, input and schema are all
+        unchanged, so a run that fails partway never pays twice for the same call.
+        """
         if create is None:
             load_dotenv(ROOT / ".env")
             key = os.environ.get("OPENROUTER_API_KEY")
@@ -94,6 +101,7 @@ class LLMClient:
             create = client.chat.completions.create
         self._create = create
         self._log_path = log_path
+        self._cache_dir = cache_dir
 
     def complete_json(self, *, purpose: str, model: str, prompt: Prompt, user: str,
                       schema: type[T], temperature: float | None = None,
@@ -109,6 +117,13 @@ class LLMClient:
 
         options = {} if temperature is None else {"temperature": temperature}
         started = time.monotonic()
+        cache_file = self._cache_file(model, prompt, user, response_format)
+        if cache_file and cache_file.exists():
+            cached = json.loads(cache_file.read_text(encoding="utf-8"))
+            self._log(purpose, model, prompt, user, 0, started, error="", cached=True)
+            return LLMResult(data=schema.model_validate(cached["data"]), model=cached["model"],
+                             prompt_version=prompt.version, attempts=0, input_tokens=None,
+                             output_tokens=None, cost_usd=0.0)
         last_error = ""
         for attempt in range(1, JSON_ATTEMPTS + 1):
             try:
@@ -137,12 +152,22 @@ class LLMClient:
                                prompt_version=prompt.version, attempts=attempt,
                                **_usage(response))
             self._log(purpose, model, prompt, user, attempt, started, response)
+            if cache_file:
+                cache_file.parent.mkdir(parents=True, exist_ok=True)
+                cache_file.write_text(json.dumps({"model": result.model, "data": data.model_dump()}),
+                                      encoding="utf-8")
             return result
 
         raise LLMError(f"{purpose}: no valid JSON from {model} after {JSON_ATTEMPTS} attempts ({last_error})")
 
+    def _cache_file(self, model: str, prompt: Prompt, user: str, response_format: dict) -> Path | None:
+        if self._cache_dir is None:
+            return None
+        key = json.dumps([model, prompt.text, user, response_format], sort_keys=True)
+        return self._cache_dir / f"{hashlib.sha256(key.encode()).hexdigest()}.json"
+
     def _log(self, purpose: str, model: str, prompt: Prompt, user: str, attempt: int,
-             started: float, response: Any = None, error: str = "") -> None:
+             started: float, response: Any = None, error: str = "", cached: bool = False) -> None:
         entry = {
             "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "purpose": purpose,
@@ -155,6 +180,7 @@ class LLMClient:
             "seconds": round(time.monotonic() - started, 2),
             **(_usage(response) if response is not None else {}),
             "ok": not error,
+            "cached": cached,
             "error": error,
         }
         self._log_path.parent.mkdir(parents=True, exist_ok=True)
