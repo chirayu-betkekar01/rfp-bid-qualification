@@ -12,5 +12,8 @@ def db() -> Iterator[psycopg.Connection]:
     if not url:
         pytest.skip("TEST_DATABASE_URL not set (start local Supabase: npx supabase start)")
     with psycopg.connect(url) as conn:
+        # Open the outer transaction now, so `conn.transaction()` blocks in the code
+        # under test become savepoints and the rollback below undoes everything.
+        conn.execute("select 1")
         yield conn
         conn.rollback()
