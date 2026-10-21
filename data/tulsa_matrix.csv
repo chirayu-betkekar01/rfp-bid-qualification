@@ -1,0 +1,95 @@
+req_id,rfp_section,requirement,type,mandatory,expected_status,library_sources,reviewer_guidance,risk,owner
+T-001,IV.A,Provide a project team that works closely with Council staff to understand current workflows and needs,Implementation,Yes,Fully compliant,"IMP-001, IMP-003",Name the project manager and team roles. Implementation is done by Tallyhouse's own team.,Low,Professional Services
+T-002,IV.B,"Cloud-based CRM for centralized tracking, monitoring and reporting, for 1 to 25 users",Functional,Yes,Fully compliant,"PRD-001, HOST-001",Confirm the plan offered fits 25 users and the budget cap in T-061.,Medium,Solutions Engineering
+T-003,IV.C,Integrate with the City's existing communication channels,Integration,Yes,Partially compliant,"INT-001, INT-004, INT-006","Outlook is native. Social media and Wix have no library source, so do not claim full compliance.",High,Solutions Engineering
+T-004,IV.D,Secure user authentication and role-based access control,Security,Yes,Fully compliant,"INT-005, SEC-006, SEC-007",,Low,Security
+T-005,IV.E,Robust search and filtering of historical constituent interactions,Functional,Yes,Fully compliant,"PRD-002, PRD-008",No library answer names search directly. Confirm wording with the product owner.,Medium,Solutions Engineering
+T-006,IV.F,Case management and workflow automation to monitor resolution,Functional,Yes,Fully compliant,"PRD-003, PRD-006",,Low,Solutions Engineering
+T-007,IV.G,Analytics and reporting on constituent concerns and trends,Functional,Yes,Fully compliant,"PRD-008, PUB-006",,Low,Solutions Engineering
+T-008,IV.H,Mobile access so council members and staff can view and update records remotely,Functional,Yes,Fully compliant,PRD-009,,Low,Solutions Engineering
+T-009,IV.I,"Training, documentation and ongoing technical support",Support,Yes,Fully compliant,"IMP-005, SUP-001",,Low,Customer Support
+T-010,IV.A.1,"Centralize all channels (Outlook email, scanned mail, phone, social media, web forms, walk-ins) in one database",Functional,Yes,Partially compliant,"PRD-002, PUB-002, INT-004",Social media capture has no source. Scanned mail is handled as an attachment upload.,High,Solutions Engineering
+T-011,IV.A.2,"Case management with automated tracking, response reminders and resolution timelines",Functional,Yes,Fully compliant,PRD-003,,Low,Solutions Engineering
+T-012,IV.A.3,Assign inquiries to specific staff and monitor progress,Functional,Yes,Fully compliant,"PUB-004, PUB-006",,Low,Public Sector Team
+T-013,IV.A.4,"Categorize and prioritize concerns, with search and filtering",Functional,Yes,Fully compliant,"PUB-004, PRD-003",Same search wording gap as T-005.,Medium,Solutions Engineering
+T-014,IV.A.5,"Upload and attach Word, PDF, Excel and image files to cases",Functional,Yes,Fully compliant,PRD-005,,Low,Solutions Engineering
+T-015,IV.A.6,"Alert users to possible duplicate names, addresses and businesses at data entry, and merge duplicates",Functional,Yes,Fully compliant,PRD-011,"Confirm the alert appears at data entry, not only in a later scan.",Medium,Solutions Engineering
+T-016,IV.A.7,Send email and SMS push messages from the CRM,Functional,Yes,Via integration,"PRD-010, PUB-003, INT-001",Email is native. SMS runs through Twilio; state that dependency and any cost.,Medium,Solutions Engineering
+T-017,IV.A.8,Real-time dashboards showing pending vs. resolved requests and trends by category,Functional,Yes,Fully compliant,"PRD-008, PUB-006",,Low,Solutions Engineering
+T-018,IV.A.9,Custom report generation,Functional,Yes,Fully compliant,PRD-008,,Low,Solutions Engineering
+T-019,IV.A.10,Predictive analytics that identify emerging community concerns from historical data,Functional,Yes,Needs decision,None,"The library's AI features cover summaries and drafting, not prediction. The owner must choose a roadmap answer or not compliant. The draft must not invent this capability.",High,Product Marketing
+T-020,IV.A.11,Filter and export all or some data without an admin request or lead time,Functional,Yes,Fully compliant,"PRD-008, INT-007",,Low,Solutions Engineering
+T-021,IV.A.12,Maps and reports showing locations and frequency of reported issues,Functional,Yes,Via integration,PUB-005,Mapping requires Esri ArcGIS. Confirm whether the City holds a license.,Medium,Public Sector Team
+T-022,IV.B.1,"Integrate with Microsoft Outlook, social media, Wix web forms and a future Teams phone system",Integration,Yes,Partially compliant,"INT-004, INT-006",Outlook is native and Teams phone works through telephony partners. Social media and Wix have no source.,High,Solutions Engineering
+T-023,IV.B.2,"Full access on iOS, Android, Windows and Mac",Integration,Yes,Fully compliant,PRD-009,Desktop access is through the browser. Say so rather than implying native desktop apps.,Medium,Solutions Engineering
+T-024,IV.B.3,"Import historical data from Excel, Wix and Outlook",Integration,Yes,Partially compliant,"INT-007, IMP-004, INT-004",Excel imports by CSV and Outlook syncs through Microsoft 365. The Wix export path is unconfirmed.,Medium,Professional Services
+T-025,IV.B.4,Send and receive email from the City's own domain,Integration,Yes,Needs decision,None,No library answer. The product owner must confirm custom sending-domain support.,High,Solutions Engineering
+T-026,IV.C.1,System is easy to learn and use,Support,Yes,Fully compliant,"PRD-006, IMP-005",Keep it descriptive. Avoid claims about learning time that have no source.,Low,Product Marketing
+T-027,IV.C.2,"Comprehensive training, including on-demand videos, user guides and FAQs",Support,Yes,Fully compliant,IMP-005,,Low,Professional Services
+T-028,IV.C.3,"Technical support 8:00 AM to 5:00 PM CST, Monday to Friday",Support,Yes,Fully compliant,SUP-001,Tallyhouse hours (7am to 7pm Central) cover the requirement.,Low,Customer Support
+T-029,IV.C.4,Dedicated account manager for escalations,Support,Yes,Partially compliant,SUP-005,A named customer success manager is only included above $50K ARR. At this budget the City would not qualify unless the Deal Desk approves an exception.,High,Deal Desk
+T-030,IV.C.5,Feedback and optimization reviews for adoption and improvement,Support,Yes,Partially compliant,IMP-008,Business reviews are tied to customer success coverage. Same threshold issue as T-029.,Medium,Customer Support
+T-031,IV.D.1,"99.9% or higher uptime, with redundancy",Security,Yes,Fully compliant,"HOST-003, HOST-004",,Low,Security
+T-032,IV.D.2,Software updates and security patches without service disruption,Security,Yes,Fully compliant,PRD-012,,Low,Security
+T-033,IV.D.3,"Comply with public data laws, including the Oklahoma Open Records Act",Legal,Yes,Fully compliant,LEG-006,LEG-006 is not backed by the vendor profile. Legal must confirm before use.,High,Legal
+T-034,IV.D.4,Role-based access so each role sees only relevant data,Security,Yes,Fully compliant,SEC-007,,Low,Security
+T-035,IV.D.5,Process and format for extracting all data if the City ends the subscription,Legal,Yes,Fully compliant,"LEG-003, INT-007",,Low,Legal
+T-036,V.A,"Detailed deployment plan covering migration, integration, testing, training and go-live",Implementation,Yes,Fully compliant,"IMP-001, IMP-002, IMP-004","Needs a Tulsa-specific plan, not just the library text.",Medium,Professional Services
+T-037,V.B,Fully operational CRM that meets all stated requirements,Implementation,Yes,Partially compliant,None,"Status depends on T-003, T-019, T-022 and T-025.",Medium,Solutions Engineering
+T-038,V.C,Training materials plus live training during implementation,Implementation,Yes,Fully compliant,IMP-005,,Low,Professional Services
+T-039,V.D,Ongoing technical support,Support,Yes,Fully compliant,"SUP-001, SUP-002",,Low,Customer Support
+T-040,VI,Agree performance metrics and attend regular status meetings,Implementation,Yes,Fully compliant,IMP-008,,Low,Professional Services
+T-041,VIII.A,Describe software features and reporting capabilities,Response question,Yes,Fully compliant,"PRD-001, PRD-008",,Low,Solutions Engineering
+T-042,VIII.B,Explain how the solution aligns with the City's requirements,Response question,Yes,Fully compliant,None,Write this summary from the matrix itself.,Medium,Solutions Engineering
+T-043,VIII.C,Is a knowledge base included?,Response question,Yes,Fully compliant,PRD-004,,Low,Solutions Engineering
+T-044,VIII.D,Predictive canned responses or prewritten email templates,Response question,Yes,Partially compliant,"PRD-013, PRD-010",AI drafting and marketing templates exist. The library has no answer on case reply templates.,Medium,Product Marketing
+T-045,VIII.E,Can email distribution lists be stored and updated?,Response question,Yes,Fully compliant,PRD-010,Segmentation covers this. Confirm the wording.,Medium,Product Marketing
+T-046,VIII.F,Provide a sample standard report,Response question,Yes,Needs decision,None,An attachment is required and nothing in the library provides it.,Medium,Solutions Engineering
+T-047,VIII.G,"Can reports be easily exported, and how?",Response question,Yes,Fully compliant,"PRD-008, INT-007",,Low,Solutions Engineering
+T-048,VIII.H,Full compatibility with mobile devices and operating systems,Response question,Yes,Fully compliant,PRD-009,Same browser caveat as T-023.,Medium,Solutions Engineering
+T-049,VIII.I,"Integration with Wix web forms, email marketing and similar tools",Response question,Yes,Partially compliant,"PRD-010, INT-001",Email marketing is native. Wix has no source.,High,Solutions Engineering
+T-050,VIII.J,Typical installation time after contract signing,Response question,Yes,Fully compliant,IMP-002,"Public Sector Edition takes 12 to 16 weeks, but the City expects service to begin about two weeks after signing. Flag the timeline gap.",High,Professional Services
+T-051,VIII.K,Process and timeline for a new implementation,Response question,Yes,Fully compliant,"IMP-001, IMP-002",,Low,Professional Services
+T-052,VIII.L,Features that make the system intuitive and easy to learn,Response question,Yes,Fully compliant,PRD-006,,Low,Product Marketing
+T-053,VIII.M,Average learning curve for everyday users,Response question,Yes,Needs decision,None,No library answer. Do not invent a number.,Medium,Professional Services
+T-054,VIII.N,How training is provided,Response question,Yes,Fully compliant,IMP-005,,Low,Professional Services
+T-055,VIII.O,Training process for implementation staff,Response question,Yes,Fully compliant,IMP-005,,Low,Professional Services
+T-056,VIII.P,Will the City receive a dedicated support manager?,Response question,Yes,Partially compliant,SUP-005,Same threshold issue as T-029.,High,Deal Desk
+T-057,VIII.Q,How technical support is provided,Response question,Yes,Fully compliant,"SUP-002, SUP-003, SUP-004",SUP-004 is stale. The owner must re-confirm it before reuse.,Medium,Customer Support
+T-058,VIII.R,"Pricing structure (per license or other), with an example",Response question,Yes,Fully compliant,PRC-001,"Never use PRC-006, which has the stale $80 price.",High,Deal Desk
+T-059,VIII.S,List any add-on costs,Response question,Yes,Fully compliant,"PRC-004, PRC-002",Include the implementation fee and the Twilio and ArcGIS dependencies.,High,Deal Desk
+T-060,VIII.T,"Is a testing or trial period allowed, when does it start and how long is it?",Response question,Yes,Needs decision,None,No library answer.,Medium,Deal Desk
+T-061,IX,"Pricing stays within the approved budget, not to exceed $20,000 for the year",Commercial,No (scored),Not compliant,"PRC-001, PRC-002","Public Sector Edition list price for 25 users is $60,000 a year before implementation. A smaller Professional plan could fit but loses custom objects. This is a go/no-go decision for the Deal Desk.",High,Deal Desk
+T-062,VIII.U,Experience providing CRM software to public agencies,Response question,Yes,Fully compliant,"COM-003, REF-001",Experience with legislative bodies such as city councils is scored but not in the library.,Medium,Product Marketing
+T-063,VIII.V,Years in business,Response question,Yes,Fully compliant,COM-007,,Low,Product Marketing
+T-064,VIII.W,What differentiates the product from competitors?,Response question,Yes,Fully compliant,REF-003,,Low,Product Marketing
+T-065,VIII.X,"Three references with organization, address, contact, phone, dates and scope",Response question,Yes,Partially compliant,"REF-001, REF-002, REF-005","The library says contacts are shared after shortlisting, but this RFP requires them in the proposal.",High,Product Marketing
+T-066,Exhibit B.1,"Comply with listed data protection laws, including HIPAA, and bind subcontractors to them",Legal,Yes,Needs decision,"SEC-011, LEG-004",The library says Tallyhouse does not sign HIPAA BAAs. Legal must judge whether HIPAA applies to council constituent data.,High,Legal
+T-067,Exhibit B.3,"Support City due diligence, including a SOC 2 Type 2 report or equivalent",Security,Yes,Fully compliant,SEC-001,,Low,Security
+T-068,Exhibit B.3,"Encrypt data in transit and at rest, at no less than 256-bit",Security,Yes,Partially compliant,SEC-005,"AES-256 at rest is confirmed. In transit is TLS 1.2 or higher, with cipher strength not stated. Ignore stale SEC-015.",High,Security
+T-069,Exhibit B.3,Store and process data only in US data centers,Security,Yes,Fully compliant,HOST-002,,Low,Security
+T-070,Exhibit B.3,"Deliver a full, updated copy of City data to the City every night",Security,Yes,Needs decision,INT-007,"The bulk API could support this, but no library answer commits to it.",High,Solutions Engineering
+T-071,Exhibit B.3,"Provide a complete data dictionary of tables, fields, types and relationships",Security,Yes,Needs decision,None,No library answer.,Medium,Solutions Engineering
+T-072,Exhibit B.3,"Keep access, firewall and intrusion logs for at least 180 days",Security,Yes,Partially compliant,SEC-008,Application logs are kept 12 months. Firewall and intrusion log retention is not stated.,Medium,Security
+T-073,Exhibit B.4,Return or destroy City data within 30 days of termination and certify destruction,Legal,Yes,Partially compliant,LEG-003,"The library timeline runs past 30 days (30 days available, then deletion within 30, backups within 35). Needs an exception or a policy change.",High,Legal
+T-074,Exhibit B.6,Report confirmed or suspected breaches within 24 hours,Security,Yes,Not compliant,SEC-010,The library commits to 72 hours. Requires an exception or a policy change.,High,Security
+T-075,Exhibit B.6,Reimburse all breach costs and indemnify the City,Legal,Yes,Needs decision,None,No library answer.,High,Legal
+T-076,Exhibit B.9,Cyber liability insurance of at least $1M per occurrence and $5M annual aggregate,Legal,Yes,Fully compliant,LEG-005,LEG-005 is not backed by the vendor profile. Confirm per-occurrence and aggregate limits.,Medium,Legal
+T-077,Exhibit B.10,Disaster recovery program with backup sites under the same controls,Security,Yes,Fully compliant,"HOST-004, HOST-005",,Low,Security
+T-078,Exhibit B.11,"Allow audits by state, federal and City auditors",Legal,Yes,Needs decision,SEC-001,No library answer covers audit rights.,Medium,Legal
+T-079,X.K,"Insurance: $1M general liability, $1M auto liability, statutory workers' compensation, Oklahoma-authorized insurer",Legal,Yes,Partially compliant,LEG-005,General liability is covered. Auto and workers' compensation are not in the library.,Medium,Legal
+T-080,Appendix A.2,"No limit on liability for direct damages, and no indemnification or arbitration by the City",Legal,Yes,Needs decision,LEG-001,The library says Tallyhouse usually negotiates liability terms. This City will not.,High,Legal
+T-081,Appendix A.1,"One-year term with four optional renewals, subject to annual appropriation",Commercial,Yes,Fully compliant,"PRC-003, PRC-005",Multi-year discounts do not apply to one-year terms. Check the price.,Medium,Deal Desk
+T-082,Appendix A.7,"Comply with all laws, including ADA and E-Verify",Legal,Yes,Needs decision,None,No library answer on E-Verify.,Medium,Legal
+T-083,X.E,Do not use the City's name as a customer without written permission,Legal,Yes,Fully compliant,None,Policy acknowledgment only.,Low,Legal
+T-084,VII.A,"Deliver sealed proposal by Sept. 17, 2025, 5:00 PM CDT, labeled with the RFP number",Submission,Yes,Admin,None,"Deadline to track, not an answer to draft.",Low,Proposal Manager
+T-085,VII.B,"Submit one unbound original, three bound copies and one digital copy (USB or CD)",Submission,Yes,Admin,None,,Low,Proposal Manager
+T-086,VII.D,Register as a City vendor to receive addenda,Submission,Yes,Admin,None,,Low,Proposal Manager
+T-087,VII.E,"Send clarification questions by email by Sept. 5, 2025",Submission,No,Admin,None,"Use this window for T-019, T-025 and T-061.",Low,Proposal Manager
+T-088,Checklist,Cover letter,Submission,Yes,Admin,None,,Low,Proposal Manager
+T-089,Checklist,Respondent Information Sheet,Submission,Yes,Admin,None,,Low,Proposal Manager
+T-090,Exhibit A,Signed price sheet with a five-year fee schedule,Submission,Yes,Admin,PRC-001,The RFP asks for five years of fees but the contract is one year plus four renewals. Price each year.,Medium,Deal Desk
+T-091,Exhibit B,Signed Data Rider,Submission,Yes,Admin,None,Signing commits Tallyhouse to T-066 through T-078. Resolve those first.,High,Legal
+T-092,Affidavit,Signed and notarized non-collusion affidavit,Submission,Yes,Admin,None,,Low,Legal
+T-093,Addenda,"Signed acknowledgment of addenda, or ""None""",Submission,Yes,Admin,None,,Low,Proposal Manager
+T-094,Schedule,"Optional pre-proposal conference, Aug. 28, 2025",Submission,No,Admin,None,Attending improves the relationship score in go/no-go.,Low,Proposal Manager

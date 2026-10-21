@@ -1,0 +1,30 @@
+# Secrets (rule 9)
+.env
+.env.*
+!.env.example
+
+# CAIQ questionnaire: personal use only, never in the repo (rule 8)
+data/caiq*
+data/**/caiq*
+*CAIQ*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

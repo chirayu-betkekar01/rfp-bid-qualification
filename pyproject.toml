@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tallyhouse-rfp"
+version = "0.1.0"
+description = "Drafts B2B RFP responses from an approved library; a human reviewer decides every line."
+requires-python = ">=3.11"
+dependencies = [
+    "pdfplumber>=0.11",
+    "python-docx>=1.1",
+    "openpyxl>=3.1",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+    "pydantic>=2.6",
+    "openai>=1.40",            # OpenAI-compatible client pointed at OpenRouter
+    "psycopg[binary]>=3.1",
+    "pgvector>=0.3",
+    "streamlit>=1.35",
+]
+
+[project.optional-dependencies]
+# Fallback if OpenRouter embeddings are not used (open decision, week 1)
+local-embeddings = ["sentence-transformers>=3.0"]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+include = ["src*", "eval*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
