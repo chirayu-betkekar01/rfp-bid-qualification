@@ -80,6 +80,17 @@ def test_strict_schema_requires_every_field() -> None:
     assert item["required"] == ["ref", "mandatory"] and item["additionalProperties"] is False
 
 
+def test_fields_named_like_schema_keywords_are_kept() -> None:
+    class Meta(BaseModel):
+        title: str
+        default: str | None
+
+    schema = strict_schema(Meta)
+    assert set(schema["properties"]) == {"title", "default"}
+    assert schema["required"] == ["title", "default"]
+    assert "title" not in schema["properties"]["title"], "the keyword is still stripped inside fields"
+
+
 def test_result_is_typed_and_traceable(tmp_path) -> None:
     c, _ = client(tmp_path, GOOD)
     result = call(c)

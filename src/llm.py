@@ -66,7 +66,10 @@ def strict_schema(model: type[BaseModel]) -> dict[str, Any]:
     """JSON schema for strict structured output: every field required, no extra fields."""
     def tighten(node: Any) -> Any:
         if isinstance(node, dict):
-            node = {k: tighten(v) for k, v in node.items() if k not in ("title", "default")}
+            # Drop the "title"/"default" keywords, but never a field that happens to be named "title".
+            node = {k: ({name: tighten(field) for name, field in v.items()} if k in ("properties", "$defs")
+                        else tighten(v))
+                    for k, v in node.items() if k not in ("title", "default")}
             if node.get("type") == "object" and "properties" in node:
                 node["required"] = list(node["properties"])
                 node["additionalProperties"] = False
