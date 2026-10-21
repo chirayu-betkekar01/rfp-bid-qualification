@@ -1,2 +1,2 @@
 run_at,rfp,git_commit,models,prompt_versions,predicted_rows,matched,recall,precision,status_match,citation_overlap,unflagged_traps,needs_decision_ok,high_risk_ok,go_no_go,passed,note
-2026-10-21T01:06:51+00:00,tulsa,14af399-dirty,,,0,0,0.0000,,,,0,0/12,0/22,not scored/no_bid,False,empty run: no rfp with source_file tulsa_rfp_26-901.pdf
+2026-10-21T01:07:06+00:00,tulsa,7ada273,,,0,0,0.0000,,,,0,0/12,0/22,not scored/no_bid,False,empty run: no rfp with source_file tulsa_rfp_26-901.pdf
