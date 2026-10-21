@@ -17,8 +17,9 @@ from src.llm import LLMClient, load_prompt
 from src.parse.sections import Block, ParsedDocument
 
 WINDOW_CHARS = 12_000           # about 3,000 tokens of RFP text per call
+ROWS_MAX_TOKENS = 12_000        # largest reply seen on Tulsa was ~6,500 tokens
 META_CHARS = 8_000              # opening text sent for buyer, title and due date
-PARALLEL_CALLS = 4
+PARALLEL_CALLS = 2              # keeps OpenRouter's in-flight credit reservation small
 EXTRACT_PROMPT = "extract_v1"
 META_PROMPT = "extract_meta_v1"
 
@@ -78,12 +79,13 @@ def extract(doc: ParsedDocument, client: LLMClient, model: str) -> Extraction:
 
     def run(group: list[Block]):
         return client.complete_json(purpose="extract", model=model, prompt=prompt,
-                                    user=format_window(group), schema=ExtractedRows)
+                                    user=format_window(group), schema=ExtractedRows,
+                                    max_tokens=ROWS_MAX_TOKENS)
 
     opening = format_window(doc.blocks)[:META_CHARS]
     with ThreadPoolExecutor(max_workers=PARALLEL_CALLS) as pool:
         meta_future = pool.submit(client.complete_json, purpose="extract_meta", model=model,
-                                  prompt=meta_prompt, user=opening, schema=RfpMeta)
+                                  prompt=meta_prompt, user=opening, schema=RfpMeta, max_tokens=500)
         results = list(pool.map(run, groups))
         meta = meta_future.result()
 

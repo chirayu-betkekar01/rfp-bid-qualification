@@ -120,6 +120,22 @@ def test_log_records_each_attempt_without_prompt_text(tmp_path) -> None:
     assert "jane@example.gov" not in log and PROMPT.text not in log
 
 
+def test_max_tokens_is_always_sent(tmp_path) -> None:
+    c, fake = client(tmp_path, GOOD)
+    call(c)
+    assert fake.calls[0]["max_tokens"] > 0
+
+
+def test_cut_off_reply_is_an_error_not_a_retry(tmp_path) -> None:
+    def create(**kwargs):
+        r = reply('{"items": [')
+        r.choices[0].finish_reason = "length"
+        return r
+    c = LLMClient(create=create, log_path=tmp_path / "calls.jsonl")
+    with pytest.raises(LLMError, match="cut off at max_tokens"):
+        call(c)
+
+
 def test_missing_api_key_is_a_clear_error(monkeypatch) -> None:
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
     monkeypatch.setattr("src.llm.load_dotenv", lambda *a, **k: None)

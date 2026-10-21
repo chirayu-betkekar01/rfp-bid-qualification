@@ -29,6 +29,7 @@ CALL_LOG = ROOT / "logs" / "llm_calls.jsonl"
 # Never route to providers that keep or train on prompts; fail rather than fall back to one.
 PROVIDER_ROUTING = {"data_collection": "deny", "zdr": True, "require_parameters": True}
 JSON_ATTEMPTS = 3          # re-ask when the reply is not valid JSON for the schema
+DEFAULT_MAX_TOKENS = 8_000 # caps the reply; OpenRouter reserves credit for the maximum up front
 HTTP_RETRIES = 3           # handled by the client for timeouts, 429 and 5xx
 
 T = TypeVar("T", bound=BaseModel)
@@ -95,7 +96,8 @@ class LLMClient:
         self._log_path = log_path
 
     def complete_json(self, *, purpose: str, model: str, prompt: Prompt, user: str,
-                      schema: type[T], temperature: float | None = None) -> LLMResult[T]:
+                      schema: type[T], temperature: float | None = None,
+                      max_tokens: int = DEFAULT_MAX_TOKENS) -> LLMResult[T]:
         """Ask `model` for JSON matching `schema`, with `prompt` as the system message.
 
         `temperature` is only sent when given: some models (e.g. Claude Sonnet 5.5) reject it,
@@ -112,13 +114,18 @@ class LLMClient:
             try:
                 response = self._create(
                     model=model, messages=messages, response_format=response_format,
-                    extra_body={"provider": PROVIDER_ROUTING, "usage": {"include": True}}, **options,
+                    max_tokens=max_tokens, extra_body={"provider": PROVIDER_ROUTING, "usage": {"include": True}}, **options,
                 )
             except Exception as exc:
                 self._log(purpose, model, prompt, user, attempt, started, error=f"{type(exc).__name__}: {exc}")
                 raise LLMError(f"{purpose}: request to {model} failed: {exc}") from exc
 
-            content = response.choices[0].message.content or ""
+            choice = response.choices[0]
+            if getattr(choice, "finish_reason", None) == "length":
+                self._log(purpose, model, prompt, user, attempt, started, response, error="hit max_tokens")
+                raise LLMError(f"{purpose}: reply from {model} was cut off at max_tokens={max_tokens}; "
+                               "send less text per call or raise max_tokens")
+            content = choice.message.content or ""
             try:
                 data = schema.model_validate_json(content)
             except ValidationError as exc:
