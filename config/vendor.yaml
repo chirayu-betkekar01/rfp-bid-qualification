@@ -1,0 +1,86 @@
+# Vendor facts and scoring rules. Everything vendor-specific lives here so a
+# different vendor means replacing this file and data/library.csv, not code.
+# Source of truth: CLAUDE.md, "Vendor facts" and "Go/no-go scoring".
+
+vendor: Tallyhouse CRM, Inc.
+category: [crm, customer_service, constituent_service_311]
+
+pricing:
+  professional_per_user_month: 90      # up to 250 users, no custom objects
+  professional_max_users: 250
+  enterprise_per_user_month: 150
+  public_sector_platform_fee_year: 30000
+  public_sector_per_staff_user_year: 1200
+  implementation_one_time: [25000, 120000]
+  multi_year_discount: {2: 0.10, 3: 0.15}
+
+implementation_weeks: {commercial: [8, 12], public_sector: [12, 16]}
+hosting: {clouds: [aws, azure, gcp], regions: us_only}
+csm_included_above_arr: 50000
+review_cycle_days: 365     # library answers older than this are Stale
+
+# Any of these as a MANDATORY requirement = automatic no-bid.
+# Phrases are matched case-insensitively on word boundaries.
+hard_fail_gaps:
+  fedramp: [fedramp, federal risk and authorization management program]
+  on_premises_or_private_cloud: [on-premises, on premises, on-prem, self-hosted, customer-hosted, private cloud]
+  hipaa_baa: [hipaa, business associate agreement, baa]
+  eu_data_residency: [eu data residency, data residency in the eu, european union data residency, eu data center, eu region]
+  cjis: [cjis, criminal justice information services]
+
+# Answer honestly, flag for review.
+soft_gaps:
+  stateramp_in_progress_q2_2027: [stateramp, govramp, state risk and authorization management program]
+  no_native_telephony_via_twilio: [telephony, ivr, interactive voice response, call center, contact center, phone system, cti]
+  breach_notice_72_hours: [breach notification, breach notice, notify of a breach, security incident notification]
+
+scorecard:
+  bid_threshold: 65          # recommend bid at or above
+
+  product_fit:
+    points: 30
+    row_types: [Functional, Integration]
+    status_values:
+      Fully compliant: 1.0
+      Via integration: 0.75
+      Partially compliant: 0.5
+      Needs decision: 0.25
+      Not compliant: 0.0
+
+  mandatory:
+    points: 20
+    penalty_per_not_compliant: 5
+    penalty_per_needs_decision: 1
+    floor: 0
+
+  relationship:              # reviewer input
+    points: 15
+    options:
+      spoke_with_buyer_before_rfp: 15
+      pre_proposal_meeting_only: 8
+      none: 0
+
+  deal_size:                 # budget vs list price
+    points: 15
+    at_or_above_list: 15
+    within_pct_below: 0.25
+    within_pct_below_points: 8
+    further_below_points: 0  # also raises a flag
+    unknown_budget_points: 8 # also raises a flag
+
+  competitive_position:      # by incumbent
+    points: 10
+    incumbents:
+      none: 10
+      legacy: 10
+      hubspot: 6
+      zendesk: 6
+      salesforce: 3
+      microsoft_dynamics: 3
+      unknown: 5
+
+  effort_vs_deadline:
+    points: 10
+    full:    {min_days: 14, max_requirements: 149, points: 10}
+    partial: {min_days: 7,  max_requirements: 300, points: 5}
+    otherwise_points: 0
