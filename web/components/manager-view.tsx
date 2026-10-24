@@ -6,11 +6,12 @@ import {
   addRow, answerRowMyself, assignAllSuggested, assignRowTo, assignSectionTo, deleteRow, editRow, mergeRows,
   type ActionResult,
 } from "@/app/actions";
+import { AnswerForm, AnswerLine, SuggestionBox } from "@/components/answers";
 import { ChangeLog } from "@/components/change-log";
 import { PRIORITY_LABELS, RowForm, fieldClass, inputClass } from "@/components/row-form";
 import { suggestedOwner, type Person } from "@/lib/people";
 import {
-  ANSWERS, PRIORITIES, type Answer, type Change, type Priority, type Requirement, type RequirementInput, type Rfp,
+  PRIORITIES, type Change, type Priority, type Requirement, type RequirementInput, type Rfp,
   type RowType, type Section,
 } from "@/lib/requirements";
 
@@ -336,7 +337,8 @@ function RowItem({ row, rfpId, sections, people, byId, canEdit, canAssign, actor
           <input type="checkbox" className="mt-1" aria-label={`Select ${row.reqRef}`} checked={selected} onChange={onToggle} />
         )}
         <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-          <button onClick={onActivate} className="min-w-0 flex-1 text-left">
+          <div className="min-w-0 flex-1">
+          <button onClick={onActivate} className="w-full text-left">
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
               <span className="font-mono text-zinc-500">{row.reqRef}</span>
               <span className="font-medium text-zinc-700 dark:text-zinc-300">{row.section ?? "No reference"}</span>
@@ -346,8 +348,10 @@ function RowItem({ row, rfpId, sections, people, byId, canEdit, canAssign, actor
               {row.page && <span className="hidden text-zinc-400 lg:inline">p. {row.page}</span>}
             </div>
             <p className="mt-1 text-sm leading-snug">{row.text}</p>
-            {row.response && <AnswerLine response={row.response} />}
           </button>
+            {row.response && <AnswerLine response={row.response} />}
+            {!row.response && <SuggestionBox suggestion={row.suggestion} />}
+          </div>
           <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
             <PriorityToggle value={row.priority} disabled={!canEdit || pending}
                             onChange={(p) => act(() => editRow(row.id, { priority: p }))} />
@@ -408,57 +412,6 @@ function RowItem({ row, rfpId, sections, people, byId, canEdit, canAssign, actor
         </form>
       )}
     </li>
-  );
-}
-
-const ANSWER_TONES: Record<Answer, string> = {
-  Yes: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300",
-  No: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300",
-  Maybe: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300",
-};
-
-function AnswerLine({ response }: { response: NonNullable<Requirement["response"]> }) {
-  return (
-    <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 text-sm">
-      <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${ANSWER_TONES[response.answer]}`}>{response.answer}</span>
-      <span className="text-xs text-zinc-500">{response.personName}{response.status === "draft" && " · not submitted yet"}</span>
-      {response.note && <span className="text-zinc-600 dark:text-zinc-400">{response.note}</span>}
-    </div>
-  );
-}
-
-/** Yes / No / Maybe with a note. Nothing is selected until the person chooses. */
-export function AnswerForm({ initial, pending, onSubmit, onCancel, submitLabel = "Save answer" }: {
-  initial: Requirement["response"]; pending: boolean; submitLabel?: string;
-  onSubmit: (answer: Answer, note: string) => void; onCancel?: () => void;
-}) {
-  const [answer, setAnswer] = useState<Answer | null>(initial?.answer ?? null);
-  const [note, setNote] = useState(initial?.note ?? "");
-  const needsNote = answer !== null && answer !== "Yes";
-  return (
-    <form className="mt-3 grid gap-2 rounded-md border border-indigo-200 bg-indigo-50/50 p-3 dark:border-indigo-900 dark:bg-indigo-950/30"
-          onSubmit={(e) => { e.preventDefault(); if (answer) onSubmit(answer, note); }}>
-      <div role="radiogroup" aria-label="Can we meet this?" className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-zinc-600 dark:text-zinc-300">Can we meet this?</span>
-        {ANSWERS.map((a) => (
-          <button key={a} type="button" role="radio" aria-checked={answer === a} onClick={() => setAnswer(a)}
-                  className={`rounded-md border px-3 py-1 font-medium ${answer === a
-                    ? `${ANSWER_TONES[a]} border-transparent`
-                    : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"}`}>
-            {a}
-          </button>
-        ))}
-      </div>
-      <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
-                placeholder={needsNote ? `Why ${answer}? (required)` : "Note for the proposal manager (optional)"}
-                className={inputClass} required={needsNote} />
-      <div className="flex gap-2">
-        <button disabled={pending || !answer} className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
-          {submitLabel}
-        </button>
-        {onCancel && <button type="button" onClick={onCancel} className="px-2 text-sm">Cancel</button>}
-      </div>
-    </form>
   );
 }
 

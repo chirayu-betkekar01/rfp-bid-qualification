@@ -54,6 +54,22 @@ export type LineAnswer = {
   status: "draft" | "submitted";
 };
 
+export type LibrarySource = {
+  id: string;
+  question: string;
+  answer: string;
+  status: "Current" | "Stale";
+};
+
+export type Suggestion = {
+  answer: Answer | null;         // null: nothing in the library covers this
+  reason: string;
+  citedIds: string[];
+  sources: LibrarySource[];      // the cited library answers, so a person can check them
+  flags: string[];               // stale_source, unprofiled_source, hard_fail_gap:<name>, soft_gap:<name>
+  id: number;
+};
+
 export type Requirement = {
   id: number;
   reqRef: string;
@@ -67,6 +83,7 @@ export type Requirement = {
   edited: boolean;               // changed by a person after extraction (edit or merge)
   assigneeId: number | null;
   response: LineAnswer | null;
+  suggestion: Suggestion | null;  // the AI's latest suggestion; never pre-selected
 };
 
 export type RequirementInput = {
@@ -99,12 +116,18 @@ const REQUIREMENT_COLUMNS = `
   q.assignee_id,
   exists (select 1 from requirement_change c
           where c.requirement_id = q.id and c.action in ('edit', 'merge')) as edited,
-  a.answer, a.note, a.person_id as answer_person_id, p.name as answer_person_name, a.status as answer_status`;
+  a.answer, a.note, a.person_id as answer_person_id, p.name as answer_person_name, a.status as answer_status,
+  g.id as suggestion_id, g.answer as suggestion_answer, g.reason as suggestion_reason, g.cited_ids, g.flags,
+  (select coalesce(json_agg(json_build_object('id', l.id, 'question', l.question, 'answer', l.answer,
+                                              'status', l.status) order by l.id), '[]'::json)
+   from library_answer l where l.id = any(g.cited_ids)) as sources`;
 
 const REQUIREMENT_FROM = `
   requirement q
   left join line_response a on a.requirement_id = q.id
-  left join person p on p.id = a.person_id`;
+  left join person p on p.id = a.person_id
+  left join lateral (select * from ai_suggestion g where g.requirement_id = q.id
+                     order by g.created_at desc, g.id desc limit 1) g on true`;
 
 // Sections in document order; within one, extraction order (page, then id) keeps added rows by their page.
 const DOCUMENT_ORDER = "s.position nulls last, q.page nulls last, q.id";
@@ -362,6 +385,8 @@ type RequirementRow = {
   assignee_id: string | null; edited: boolean;
   answer: Answer | null; note: string | null; answer_person_id: string | null; answer_person_name: string | null;
   answer_status: "draft" | "submitted" | null;
+  suggestion_id: string | null; suggestion_answer: Answer | null; suggestion_reason: string | null;
+  cited_ids: string[] | null; flags: string[] | null; sources: LibrarySource[];
 };
 
 function toRfp(r: RfpRow): Rfp {
@@ -399,6 +424,14 @@ function toRequirement(r: RequirementRow): Requirement {
       personId: Number(r.answer_person_id),
       personName: r.answer_person_name ?? "",
       status: r.answer_status ?? "draft",
+    },
+    suggestion: r.suggestion_id === null ? null : {
+      id: Number(r.suggestion_id),
+      answer: r.suggestion_answer,
+      reason: r.suggestion_reason ?? "",
+      citedIds: r.cited_ids ?? [],
+      sources: r.sources,
+      flags: r.flags ?? [],
     },
   };
 }
