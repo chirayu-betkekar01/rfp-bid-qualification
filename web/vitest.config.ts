@@ -6,5 +6,6 @@ import { defineConfig } from "vitest/config";
 loadEnvConfig(path.resolve(process.cwd(), ".."));
 
 export default defineConfig({
-  test: { include: ["tests/**/*.test.ts"] },
+  // The tests share one database and insert the same test people, so files run one at a time.
+  test: { include: ["tests/**/*.test.ts"], fileParallelism: false },
 });

@@ -14,7 +14,21 @@ code scores the answers for the go/no-go decision.
 The source PDF panel serves files from `data/test_rfps/`, which stays out of git (rule 8).
 Fetch them with `python -m eval.fetch_test_rfps`.
 
-## Manager screen (`/rfps/<id>`)
+## RFP pages
+
+Each RFP has a navigation column on the left (tabs across the top on a phone):
+
+- **Overview** (`/rfps/<id>`): the RFP's details, a five-step tracker (shredded, owners set, sent to
+  experts, all answered, go / no-go) with the next thing to do, line-item counts by priority and
+  type, answer counts from people and from the AI, mandatory items answered No, the known gaps the
+  RFP touches, and after sending out, who has answered (with Nudge and the Slack log).
+- **Line items** (`/rfps/<id>/items`): the manager screen below.
+- **Contributors** (`/rfps/<id>/contributors`): add, rename, change the role of, or remove people.
+  The team is shared by every RFP, so changes update every owner dropdown. Removing someone hides
+  them from the dropdowns and keeps their past answers; it is refused while they still hold
+  unanswered items.
+
+## Line items (`/rfps/<id>/items`)
 
 - Line items are grouped by the RFP's real sections (IV, Exhibit B, ...); click one to see its page.
 - Fix the list: merge, edit, delete and add line items. Each item has a priority tag at its top

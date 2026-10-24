@@ -4,13 +4,12 @@ import { useMemo, useState, useTransition } from "react";
 
 import {
   addRow, answerRowMyself, assignAllSuggested, assignRowTo, assignSectionTo, deleteRow, editRow, mergeRows,
-  nudgePerson, sendOutToExperts, type ActionResult,
+  sendOutToExperts, type ActionResult,
 } from "@/app/actions";
 import { AnswerForm, AnswerLine, SuggestionBox } from "@/components/answers";
 import { ChangeLog } from "@/components/change-log";
 import { PriorityTag } from "@/components/priority-tag";
 import { PRIORITY_LABELS, RowForm, fieldClass, inputClass } from "@/components/row-form";
-import type { NotificationRow, PersonProgress } from "@/lib/experts";
 import { suggestedOwner, type Person } from "@/lib/people";
 import {
   PRIORITIES, type Change, type Priority, type Requirement, type RequirementInput, type Rfp,
@@ -26,9 +25,8 @@ type Group = { section: Section | null; rows: Requirement[] };
 type Act = (change: () => Promise<ActionResult>, done?: () => void) => void;
 
 /** The proposal manager's screen: fix the shredded list, then route every line item or answer it. */
-export function ManagerView({ rfp, sections, rows, changes, people, actor, progress, notifications }: {
+export function ManagerView({ rfp, sections, rows, changes, people, actor }: {
   rfp: Rfp; sections: Section[]; rows: Requirement[]; changes: Change[]; people: Person[]; actor: Person | null;
-  progress: PersonProgress[]; notifications: NotificationRow[];
 }) {
   const locked = rfp.sentOutAt !== null;
   const canEdit = !locked && actor !== null;
@@ -94,10 +92,6 @@ export function ManagerView({ rfp, sections, rows, changes, people, actor, progr
                  recipients={new Set(rows.filter((r) => !r.response && r.assigneeId !== null).map((r) => r.assigneeId)).size}
                  onSuggest={() => act(() => assignAllSuggested(rfp.id))}
                  onSendOut={(due) => act(() => sendOutToExperts(rfp.id, due))} />
-          {rfp.sentOutAt && (
-            <Progress progress={progress} notifications={notifications} canNudge={actor !== null} pending={pending}
-                      onNudge={(personId) => act(() => nudgePerson(rfp.id, personId))} />
-          )}
           {error && (
             <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
               {error}
@@ -300,7 +294,8 @@ function Guide({ rfp, actor, counts, suggestable, recipients, pending, onSuggest
         Sent to experts by <strong>{rfp.sentOutBy}</strong> on{" "}
         {rfp.sentOutAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
         {rfp.responsesDueAt && <>, answers due {rfp.responsesDueAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</>}.
-        The list is locked; you can still reassign items or answer them yourself.
+        The list is locked; you can still reassign items or answer them yourself.{" "}
+        <a href={`/rfps/${rfp.id}`} className="underline">See who has answered</a>.
       </div>
     );
   }
@@ -352,69 +347,6 @@ function defaultDue(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T17:00`;
 }
 
-const KIND_LABELS: Record<string, string> = {
-  send_out: "Sent out", forwarded: "Forwarded", reassigned: "Reassigned", nudge: "Nudge", all_done: "All answered",
-};
-
-/** After sending out: who has answered, nudges, and every Slack message. */
-function Progress({ progress, notifications, canNudge, pending, onNudge }: {
-  progress: PersonProgress[]; notifications: NotificationRow[]; canNudge: boolean; pending: boolean;
-  onNudge: (personId: number) => void;
-}) {
-  const notSent = notifications.filter((n) => !n.ok);
-  return (
-    <div className="rounded-lg border border-zinc-200 bg-white text-sm dark:border-zinc-800 dark:bg-zinc-900">
-      <h2 className="border-b border-zinc-200 px-4 py-2 font-semibold dark:border-zinc-800">Who has answered</h2>
-      <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-        {progress.map(({ person, items, answered, submitted, lastNudgedAt }) => {
-          const done = submitted === items;
-          return (
-            <li key={person.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2">
-              <span className="min-w-40 font-medium">{person.name}<span className="font-normal text-zinc-500"> · {person.role}</span></span>
-              <span className={done ? "text-emerald-700 dark:text-emerald-400" : "text-zinc-600 dark:text-zinc-300"}>
-                {done
-                  ? `Submitted all ${items}`
-                  : `${submitted} of ${items} submitted${answered > submitted ? `, ${answered - submitted} answered but not submitted` : ""}`}
-              </span>
-              <span className="ml-auto flex items-center gap-3 text-xs">
-                {lastNudgedAt && (
-                  <span className="text-zinc-400">
-                    Nudged {lastNudgedAt.toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" })}
-                  </span>
-                )}
-                {!done && canNudge && (
-                  <button disabled={pending} onClick={() => onNudge(person.id)}
-                          className="text-indigo-600 hover:underline disabled:opacity-50 dark:text-indigo-400">Nudge</button>
-                )}
-                <a href={`/r/${person.linkToken}`} target="_blank" rel="noreferrer" className="text-zinc-500 hover:underline">
-                  Open their link
-                </a>
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-      <details className="border-t border-zinc-200 dark:border-zinc-800">
-        <summary className="cursor-pointer px-4 py-2 text-zinc-600 dark:text-zinc-300">
-          Slack messages ({notifications.length})
-          {notSent.length > 0 && <span className="text-amber-700 dark:text-amber-400"> · {notSent.length} not sent</span>}
-        </summary>
-        <ul className="space-y-1 px-4 pb-3 text-xs">
-          {notifications.map((n) => (
-            <li key={n.id} className="flex flex-wrap gap-x-2">
-              <span className="text-zinc-400">{n.sentAt.toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" })}</span>
-              <span>{KIND_LABELS[n.kind] ?? n.kind}{n.personName && ` · ${n.personName}`}</span>
-              <span className={n.ok ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"}>
-                {n.ok ? "sent" : `not sent: ${n.error}`}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </details>
-    </div>
-  );
-}
-
 function RowItem({ row, rfpId, sections, people, byId, canEdit, canAssign, actor, pending, active, selected, mode,
                    onActivate, onToggle, setMode, act }: {
   row: Requirement; rfpId: number; sections: Section[]; people: Person[]; byId: Map<number, Person>;
@@ -428,7 +360,7 @@ function RowItem({ row, rfpId, sections, people, byId, canEdit, canAssign, actor
   const suggested = row.assigneeId === null ? suggestedOwner(row.type, people) : null;
 
   return (
-    <li className={`border-l-2 px-3 py-2.5 ${active ? "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/30" : "border-transparent"}`}>
+    <li id={`item-${row.id}`} className={`scroll-mt-4 border-l-2 px-3 py-2.5 ${active ? "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/30" : "border-transparent"}`}>
       <div className="flex items-start gap-3">
         {canEdit && (
           <input type="checkbox" className="mt-1" aria-label={`Select ${row.reqRef}`} checked={selected} onChange={onToggle} />

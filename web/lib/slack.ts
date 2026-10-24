@@ -17,7 +17,7 @@ export type Post = (text: string) => Promise<{ ok: boolean; error?: string }>;
 
 export const appUrl = () => (process.env.APP_BASE_URL || "http://localhost:3100").replace(/\/$/, "");
 export const personalLink = (token: string) => `${appUrl()}/r/${token}`;
-export const managerLink = (rfpId: number) => `${appUrl()}/rfps/${rfpId}`;
+export const managerLink = (rfpId: number) => `${appUrl()}/rfps/${rfpId}`;   // the RFP overview
 
 export const postToSlack: Post = async (text) => {
   const url = process.env.SLACK_WEBHOOK_URL;

@@ -8,7 +8,10 @@ import { inTransaction, pool } from "@/lib/db";
 import {
   forwardItems, nudge, reassignedMessage, saveDraft, sendOut, submitAnswers,
 } from "@/lib/experts";
-import { findPersonByToken, getPerson, type Person } from "@/lib/people";
+import {
+  addContributor, findPersonByToken, getPerson, setContributorActive, updateContributor, type ContributorInput,
+  type Person,
+} from "@/lib/people";
 import { ACTOR_COOKIE, getActor } from "@/lib/reviewer";
 import {
   CheckpointError, addRequirement, deleteRequirement, editRequirement, mergeRequirements, rfpOf,
@@ -76,6 +79,18 @@ export async function nudgePerson(rfpId: number, personId: number) {
     const messages = await inTransaction((db) => nudge(db, rfpId, personId, actor));
     await send(rfpId, messages);
   });
+}
+
+export async function addTeamMember(input: ContributorInput) {
+  return run(() => inTransaction((db) => addContributor(db, input)));
+}
+
+export async function updateTeamMember(personId: number, input: ContributorInput) {
+  return run(() => inTransaction((db) => updateContributor(db, personId, input)));
+}
+
+export async function setTeamMemberActive(personId: number, active: boolean) {
+  return run(() => inTransaction((db) => setContributorActive(db, personId, active)));
 }
 
 // Experts act through their personal link: the token in the link says who they are.
