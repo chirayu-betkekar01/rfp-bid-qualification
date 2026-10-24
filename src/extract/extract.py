@@ -20,7 +20,7 @@ WINDOW_CHARS = 12_000           # about 3,000 tokens of RFP text per call
 ROWS_MAX_TOKENS = 12_000        # largest reply seen on Tulsa was ~6,500 tokens
 META_CHARS = 8_000              # opening text sent for buyer, title and due date
 PARALLEL_CALLS = 2              # keeps OpenRouter's in-flight credit reservation small
-EXTRACT_PROMPT = "extract_v1"
+EXTRACT_PROMPT = "extract_v4"
 META_PROMPT = "extract_meta_v1"
 
 RowType = Literal["Functional", "Integration", "Security", "Legal", "Commercial",

@@ -1,3 +1,7 @@
 run_at,rfp,git_commit,models,prompt_versions,predicted_rows,matched,recall,precision,status_match,citation_overlap,unflagged_traps,needs_decision_ok,high_risk_ok,go_no_go,passed,note
 2026-10-21T01:07:06+00:00,tulsa,7ada273,,,0,0,0.0000,,,,0,0/12,0/22,not scored/no_bid,False,empty run: no rfp with source_file tulsa_rfp_26-901.pdf
 2026-10-24T00:38:58+00:00,tulsa,a121bb6,,,214,94,1.0000,0.4393,0.0000,0.0000,0,0/12,0/22,not scored/no_bid,False,
+2026-10-24T01:42:40+00:00,tulsa,6012bd4-dirty,,,133,93,0.9894,0.6992,0.0000,0.0000,0,0/12,0/22,not scored/no_bid,False,
+2026-10-24T01:44:44+00:00,tulsa,6012bd4-dirty,,,118,91,0.9681,0.7712,0.0000,0.0000,0,0/12,0/22,not scored/no_bid,False,
+2026-10-24T01:46:04+00:00,tulsa,6012bd4-dirty,,,118,90,0.9574,0.7627,0.0000,0.0000,0,0/12,0/22,not scored/no_bid,False,
+2026-10-24T01:50:44+00:00,tulsa,6012bd4-dirty,,,112,83,0.8830,0.7411,0.0000,0.0000,0,0/12,0/22,not scored/no_bid,False,
