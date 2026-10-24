@@ -17,7 +17,10 @@ Fetch them with `python -m eval.fetch_test_rfps`.
 ## Manager screen (`/rfps/<id>`)
 
 - Line items are grouped by the RFP's real sections (IV, Exhibit B, ...); click one to see its page.
-- Fix the list: merge, edit, delete, add, and set each item's priority (mandatory, scored, optional).
+- Fix the list: merge, edit, delete and add line items. Each item has a priority tag at its top
+  left, set by the AI from the RFP's wording: **Mandatory** (pass/fail), **Good to Have** (earns
+  points but isn't pass/fail; stored as `scored`) or **Optional**. The manager corrects it with the
+  tag's dropdown until the RFP is sent out.
 - Route it: **Give N unassigned items to their usual owners** sets an owner by item type; give a
   whole section to one person, change single items, or **Answer myself** (Yes / No / Maybe, with a
   note required for No and Maybe).

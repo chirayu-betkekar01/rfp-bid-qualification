@@ -5,7 +5,8 @@ import { useState, useTransition } from "react";
 import { forwardMyItems, saveMyAnswer, submitMyAnswers, type ActionResult } from "@/app/actions";
 import { AnswerForm, AnswerLine, SuggestionBox } from "@/components/answers";
 import { Badge, SourcePanel } from "@/components/manager-view";
-import { PRIORITY_LABELS, fieldClass } from "@/components/row-form";
+import { PriorityTag } from "@/components/priority-tag";
+import { fieldClass } from "@/components/row-form";
 import type { Person } from "@/lib/people";
 import type { Requirement, Section } from "@/lib/requirements";
 
@@ -139,17 +140,19 @@ function RfpCard({ rfp, token, people, activeId, onActivate }: {
                        checked={selected.has(row.id)}
                        onChange={() => setSelected((s) => { const n = new Set(s); if (n.has(row.id)) n.delete(row.id); else n.add(row.id); return n; })} />
                 <div className="min-w-0 flex-1">
-                  <button onClick={() => onActivate(row)} className="w-full text-left">
+                  <div className="flex items-start gap-2">
+                  <PriorityTag value={row.priority} />
+                  <button onClick={() => onActivate(row)} className="min-w-0 flex-1 text-left">
                     <div className="flex flex-wrap items-center gap-1.5 text-xs">
                       <span className="font-mono text-zinc-500">{row.reqRef}</span>
                       <span className="font-medium text-zinc-700 dark:text-zinc-300">{row.section}</span>
                       {section && <span className="text-zinc-400">{section.title}</span>}
                       <Badge>{row.type}</Badge>
-                      <Badge>{PRIORITY_LABELS[row.priority]}</Badge>
                       {row.page && <span className="text-zinc-400">p. {row.page}</span>}
                     </div>
                     <p className="mt-1 text-sm leading-snug">{row.text}</p>
                   </button>
+                  </div>
                   {row.lastForward && (
                     <p className="mt-1 text-xs text-indigo-700 dark:text-indigo-300">
                       Forwarded to you by {row.lastForward.fromName}{row.lastForward.note && <>: “{row.lastForward.note}”</>}

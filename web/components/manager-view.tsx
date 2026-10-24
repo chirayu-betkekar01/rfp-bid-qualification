@@ -8,6 +8,7 @@ import {
 } from "@/app/actions";
 import { AnswerForm, AnswerLine, SuggestionBox } from "@/components/answers";
 import { ChangeLog } from "@/components/change-log";
+import { PriorityTag } from "@/components/priority-tag";
 import { PRIORITY_LABELS, RowForm, fieldClass, inputClass } from "@/components/row-form";
 import type { NotificationRow, PersonProgress } from "@/lib/experts";
 import { suggestedOwner, type Person } from "@/lib/people";
@@ -434,7 +435,10 @@ function RowItem({ row, rfpId, sections, people, byId, canEdit, canAssign, actor
         )}
         <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
           <div className="min-w-0 flex-1">
-          <button onClick={onActivate} className="w-full text-left">
+          <div className="flex items-start gap-2">
+          <PriorityTag value={row.priority} disabled={pending}
+                       onChange={canEdit ? (p) => act(() => editRow(row.id, { priority: p })) : undefined} />
+          <button onClick={onActivate} className="min-w-0 flex-1 text-left">
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
               <span className="font-mono text-zinc-500">{row.reqRef}</span>
               <span className="font-medium text-zinc-700 dark:text-zinc-300">{row.section ?? "No reference"}</span>
@@ -446,12 +450,11 @@ function RowItem({ row, rfpId, sections, people, byId, canEdit, canAssign, actor
             </div>
             <p className="mt-1 text-sm leading-snug">{row.text}</p>
           </button>
+          </div>
             {row.response && <AnswerLine response={row.response} />}
             {!row.response && <SuggestionBox suggestion={row.suggestion} />}
           </div>
           <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
-            <PriorityToggle value={row.priority} disabled={!canEdit || pending}
-                            onChange={(p) => act(() => editRow(row.id, { priority: p }))} />
             {!row.response && (
               <div className="flex flex-col items-start gap-0.5 sm:items-end">
                 <OwnerSelect label={`Owner of ${row.reqRef}`} people={people} value={row.assigneeId}
@@ -523,24 +526,6 @@ function OwnerSelect({ label, people, value, disabled, emptyLabel, onChange }: {
       <option value="">{emptyLabel}</option>
       {people.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.role}</option>)}
     </select>
-  );
-}
-
-function PriorityToggle({ value, disabled, onChange }: {
-  value: Priority; disabled: boolean; onChange: (p: Priority) => void;
-}) {
-  return (
-    <div role="radiogroup" aria-label="Priority" className="inline-flex rounded-md border border-zinc-200 p-0.5 text-xs dark:border-zinc-700">
-      {PRIORITIES.map((p) => (
-        <button key={p} role="radio" aria-checked={value === p} disabled={disabled || value === p}
-                onClick={() => onChange(p)}
-                className={`rounded px-2 py-0.5 ${value === p
-                  ? "bg-zinc-900 font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "text-zinc-500 enabled:hover:bg-zinc-100 dark:enabled:hover:bg-zinc-800"}`}>
-          {PRIORITY_LABELS[p]}
-        </button>
-      ))}
-    </div>
   );
 }
 

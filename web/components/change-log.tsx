@@ -1,4 +1,5 @@
-import type { Change } from "@/lib/requirements";
+import { PRIORITY_LABELS } from "@/components/row-form";
+import type { Change, Priority } from "@/lib/requirements";
 
 type Snapshot = { req_ref: string; rfp_section: string | null; text: string; type: string;
                   priority: string; page: number | null };
@@ -35,6 +36,11 @@ export function ChangeLog({ changes }: { changes: Change[] }) {
   );
 }
 
+function shown(key: keyof Snapshot, value: unknown): string {
+  if (value === null || value === undefined) return "none";
+  return key === "priority" ? PRIORITY_LABELS[value as Priority] ?? String(value) : String(value);
+}
+
 function describe(c: Change): string {
   const before = c.before as Snapshot | Snapshot[] | null;
   const after = c.after as Snapshot | null;
@@ -48,7 +54,7 @@ function describe(c: Change): string {
     case "edit": {
       const old = before as Snapshot;
       const parts = FIELDS.filter(([key]) => old[key] !== after?.[key])
-        .map(([key, label]) => `${label} ${old[key] ?? "none"} → ${after?.[key] ?? "none"}`);
+        .map(([key, label]) => `${label} ${shown(key, old[key])} → ${shown(key, after?.[key])}`);
       if (old.text !== after?.text) parts.push("text changed");
       return `Edited ${old.req_ref}: ${parts.join("; ")}`;
     }

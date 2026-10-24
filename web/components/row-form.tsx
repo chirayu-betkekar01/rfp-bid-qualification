@@ -8,7 +8,7 @@ import {
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
   mandatory: "Mandatory",
-  scored: "Scored",
+  scored: "Good to Have",       // stored as "scored": earns points with the buyer but isn't pass/fail
   optional: "Optional",
 };
 
