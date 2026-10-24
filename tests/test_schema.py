@@ -2,7 +2,8 @@
 import psycopg
 import pytest
 
-TABLES = {"library_answer", "rfp", "requirement", "draft", "review_decision", "library_proposal"}
+TABLES = {"library_answer", "rfp", "requirement", "draft", "review_decision", "library_proposal",
+          "requirement_change"}
 
 
 def _rfp(db: psycopg.Connection) -> int:
