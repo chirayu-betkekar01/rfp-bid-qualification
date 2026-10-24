@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 
-import { PRIORITIES, ROW_TYPES, type Priority, type RequirementInput, type RowType } from "@/lib/requirements";
+import {
+  PRIORITIES, ROW_TYPES, type Priority, type RequirementInput, type RowType, type Section,
+} from "@/lib/requirements";
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
   mandatory: "Mandatory",
@@ -16,9 +18,10 @@ export const inputClass = `w-full ${fieldClass}`;
 
 /** Fields shared by add, edit and merge. */
 export function RowForm({
-  initial, submitLabel, reasonLabel = "Reason (optional)", pending, onSubmit, onCancel,
+  initial, sections, submitLabel, reasonLabel = "Reason (optional)", pending, onSubmit, onCancel,
 }: {
   initial: RequirementInput;
+  sections: Section[];
   submitLabel: string;
   reasonLabel?: string;
   pending: boolean;
@@ -26,6 +29,7 @@ export function RowForm({
   onCancel: () => void;
 }) {
   const [section, setSection] = useState(initial.section ?? "");
+  const [sectionId, setSectionId] = useState(initial.sectionId ?? sections[0]?.id ?? null);
   const [text, setText] = useState(initial.text);
   const [type, setType] = useState<RowType>(initial.type);
   const [priority, setPriority] = useState<Priority>(initial.priority);
@@ -37,7 +41,7 @@ export function RowForm({
       className="grid gap-3"
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit({ section: section || null, text, type, priority, page: page ? Number(page) : null }, reason);
+        onSubmit({ section: section || null, sectionId, text, type, priority, page: page ? Number(page) : null }, reason);
       }}
     >
       <label className="grid gap-1 text-xs font-medium text-zinc-500">
@@ -45,9 +49,15 @@ export function RowForm({
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={Math.min(8, text.split("\n").length + 2)}
                   className={inputClass} autoFocus required />
       </label>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <label className="col-span-2 grid gap-1 text-xs font-medium text-zinc-500 sm:col-span-1">
+          Section
+          <select value={sectionId ?? ""} onChange={(e) => setSectionId(Number(e.target.value))} className={inputClass}>
+            {sections.map((s) => <option key={s.id} value={s.id}>{s.ref} · {s.title}</option>)}
+          </select>
+        </label>
         <label className="grid gap-1 text-xs font-medium text-zinc-500">
-          RFP section
+          RFP reference
           <input value={section} onChange={(e) => setSection(e.target.value)} placeholder="e.g. IV.A" className={inputClass} />
         </label>
         <label className="grid gap-1 text-xs font-medium text-zinc-500">

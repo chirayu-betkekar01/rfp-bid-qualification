@@ -3,7 +3,8 @@ import psycopg
 import pytest
 
 TABLES = {"library_answer", "rfp", "requirement", "draft", "review_decision", "library_proposal",
-          "requirement_change"}
+          "requirement_change", "person", "rfp_section", "ai_suggestion", "line_response", "forward",
+          "notification"}
 
 
 def _rfp(db: psycopg.Connection) -> int:
@@ -89,3 +90,31 @@ def test_ai_cannot_be_reviewer(db: psycopg.Connection) -> None:
     with pytest.raises(psycopg.errors.CheckViolation):
         db.execute("insert into review_decision (requirement_id, reviewer, action) "
                    "values (%s, 'AI', 'approve')", (req_id,))
+
+
+def _person(db: psycopg.Connection, name: str) -> int:
+    return db.execute("insert into person (name, role) values (%s, 'Security') returning id", (name,)).fetchone()[0]
+
+
+def test_no_or_maybe_answer_needs_a_note(db: psycopg.Connection) -> None:
+    req, person = _requirement(db), _person(db, "Test Expert")
+    db.execute("insert into line_response (requirement_id, person_id, answer) values (%s, %s, 'Yes')", (req, person))
+    with pytest.raises(psycopg.errors.CheckViolation, match="note_for_no_or_maybe"):
+        db.execute("update line_response set answer = 'Maybe', note = '  ' where requirement_id = %s", (req,))
+
+
+def test_suggestion_without_a_source_has_no_answer(db: psycopg.Connection) -> None:
+    req = _requirement(db)
+    insert = ("insert into ai_suggestion (requirement_id, answer, reason, cited_ids, model, prompt_version)"
+              " values (%s, %s, 'r', %s, 'm', 'suggest_v1')")
+    db.execute(insert, (req, None, []))
+    db.execute(insert, (req, "Yes", ["SEC-005"]))
+    with pytest.raises(psycopg.errors.CheckViolation, match="no_source_no_suggestion"):
+        db.execute(insert, (req, "Yes", []))
+
+
+def test_items_are_forwarded_to_someone_else(db: psycopg.Connection) -> None:
+    req, person = _requirement(db), _person(db, "Test Expert")
+    with pytest.raises(psycopg.errors.CheckViolation, match="forward_to_someone_else"):
+        db.execute("insert into forward (requirement_id, from_person_id, to_person_id) values (%s, %s, %s)",
+                   (req, person, person))

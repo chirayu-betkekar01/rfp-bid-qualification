@@ -9,7 +9,7 @@ export default function Home() {
     <main className="mx-auto w-full max-w-5xl px-4 py-8">
       <h1 className="text-2xl font-semibold tracking-tight">RFPs</h1>
       <p className="mt-1 text-sm text-zinc-500">
-        Step 1 of review: check the requirement list the AI pulled out of each RFP, then confirm it.
+        The AI shreds each RFP into line items. Route them to the right experts, collect Yes / No / Maybe answers, then decide whether to bid.
       </p>
       <Suspense fallback={<p className="mt-6 text-sm text-zinc-500">Loading RFPs…</p>}>
         <RfpList />
@@ -40,12 +40,12 @@ async function RfpList() {
             </div>
             <span
               className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                rfp.confirmedAt
+                rfp.sentOutAt
                   ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
                   : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
               }`}
             >
-              {rfp.confirmedAt ? "List confirmed" : "Needs review"}
+              {rfp.sentOutAt ? "Sent to experts" : "Needs routing"}
             </span>
           </Link>
         </li>

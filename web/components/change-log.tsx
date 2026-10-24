@@ -52,6 +52,21 @@ function describe(c: Change): string {
       if (old.text !== after?.text) parts.push("text changed");
       return `Edited ${old.req_ref}: ${parts.join("; ")}`;
     }
+    case "assign": {
+      const a = c.after as { section?: string; req_ref?: string; person?: string | null; items?: number;
+                             suggested?: boolean };
+      if (a.suggested) return `Gave ${a.items} unassigned items to their usual owners`;
+      const who = a.person ?? "nobody";
+      return a.section ? `Gave section ${a.section} to ${who} (${a.items} items moved)` : `Gave ${a.req_ref} to ${who}`;
+    }
+    case "answer": {
+      const a = c.after as { req_ref: string; answer: string; person: string };
+      return `${a.person} answered ${a.req_ref}: ${a.answer}`;
+    }
+    case "forward":
+      return "Forwarded an item";
+    case "send_out":
+      return "Sent out to experts";
     case "confirm":
       return `Confirmed the list (${(c.after as { rows: number }).rows} rows)`;
     case "reopen":

@@ -13,6 +13,7 @@ from typing import Literal
 import psycopg
 from pydantic import BaseModel
 
+from src.extract.sections import save_sections
 from src.llm import LLMClient, load_prompt
 from src.parse.sections import Block, ParsedDocument
 
@@ -114,7 +115,7 @@ def dedupe(rows: list[ExtractedRow]) -> list[ExtractedRow]:
 
 
 def save(conn: psycopg.Connection, doc: ParsedDocument, result: Extraction) -> int:
-    """Create the rfp record and its AI-created requirement rows. Returns the rfp id."""
+    """Create the rfp record, its AI-created requirement rows and their sections. Returns the rfp id."""
     due = _parse_due(result.meta.due_date)
     with conn.transaction():
         rfp_id = conn.execute(
@@ -131,6 +132,7 @@ def save(conn: psycopg.Connection, doc: ParsedDocument, result: Extraction) -> i
                   row.mandatory == "yes", row.mandatory == "scored", row.page)
                  for n, row in enumerate(result.rows, start=1)],
             )
+        save_sections(conn, rfp_id, doc)
     return rfp_id
 
 

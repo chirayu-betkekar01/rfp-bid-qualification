@@ -1,8 +1,9 @@
 # Review app
 
-The human checkpoints of the Tallyhouse RFP system, built with Next.js. It reads and writes the
-same Postgres database as the Python pipeline. So far it covers **Checkpoint A**: the reviewer
-checks the requirement list the AI extracted, then confirms it.
+The people side of the Tallyhouse bid-qualification flow, built with Next.js. It reads and
+writes the same Postgres database as the Python pipeline: the AI shreds an RFP into sections and
+line items, the proposal manager routes them to experts, experts answer Yes / No / Maybe, and
+code scores the answers for the go/no-go decision.
 
 ## Run it
 
@@ -13,18 +14,18 @@ checks the requirement list the AI extracted, then confirms it.
 The source PDF panel serves files from `data/test_rfps/`, which stays out of git (rule 8).
 Fetch them with `python -m eval.fetch_test_rfps`.
 
-## Checkpoint A
+## Manager screen (`/rfps/<id>`)
 
-- Rows are grouped by section; a section with many rows is flagged as a likely split clause.
-- Fix a row's priority (mandatory, scored, optional) with one click; edit, delete, add, or select
-  several rows and merge them into one.
-- Clicking a row shows its page of the RFP beside the list.
-- Every change is saved in `requirement_change` with the reviewer's name, the row before and after,
-  and an optional reason. Merges keep every original row; deletes keep what the row said.
-- **Confirm list** locks the list for drafting. Reopening it needs a reason.
+- Line items are grouped by the RFP's real sections (IV, Exhibit B, ...); click one to see its page.
+- Fix the list: merge, edit, delete, add, and set each item's priority (mandatory, scored, optional).
+- Route it: **Give N unassigned items to their usual owners** sets an owner by item type; give a
+  whole section to one person, change single items, or **Answer myself** (Yes / No / Maybe, with a
+  note required for No and Maybe).
+- Every change goes to `requirement_change` with the person's name. Once the RFP is sent out to
+  experts the list is locked; reassigning still works.
 
-There is no login yet: the reviewer types their name, and the app refuses changes without one
-(or from "AI" / "system").
+There is no login yet: pick who you are under **Acting as**. The demo team is fictional and comes
+from `supabase/seed.sql`.
 
 ## Tests
 

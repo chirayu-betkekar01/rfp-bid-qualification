@@ -3,8 +3,10 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { ReviewerName } from "@/components/reviewer-name";
-import { getReviewer } from "@/lib/reviewer";
+import { ActorPicker } from "@/components/actor-picker";
+import { pool } from "@/lib/db";
+import { listPeople } from "@/lib/people";
+import { getActor } from "@/lib/reviewer";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -36,5 +38,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
 }
 
 async function Reviewer() {
-  return <ReviewerName initial={await getReviewer()} />;
+  const [people, actor] = await Promise.all([listPeople(pool()), getActor()]);
+  return <ActorPicker people={people} actorId={actor?.id ?? null} />;
 }

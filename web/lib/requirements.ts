@@ -1,9 +1,10 @@
 /**
- * Checkpoint A: the reviewer confirms the requirement list the AI extracted.
+ * The line-item list of an RFP: what the AI shredded, as the proposal manager fixes it.
  *
- * Every change is written to requirement_change with the reviewer's name, so the
- * confirmed list can be traced back to the extraction. Once the list is confirmed
- * it is locked; reopening it needs a reason. Callers run each mutation in a transaction.
+ * Every change is written to requirement_change with the person's name, so the list
+ * can be traced back to the extraction. Once the RFP is sent out to experts the list
+ * is locked: items can still be reassigned, but not added, edited, merged or deleted.
+ * Callers run each mutation in a transaction.
  */
 import type { ClientBase } from "pg";
 
@@ -15,6 +16,9 @@ export type RowType = (typeof ROW_TYPES)[number];
 
 export const PRIORITIES = ["mandatory", "scored", "optional"] as const;
 export type Priority = (typeof PRIORITIES)[number];
+
+export const ANSWERS = ["Yes", "No", "Maybe"] as const;
+export type Answer = (typeof ANSWERS)[number];
 
 export type Db = Pick<ClientBase, "query">;
 
@@ -29,25 +33,45 @@ export type Rfp = {
   extractModel: string | null;
   extractPromptVersion: string | null;
   extractedAt: Date | null;
-  confirmedBy: string | null;
-  confirmedAt: Date | null;
+  sentOutBy: string | null;
+  sentOutAt: Date | null;
   rowCount: number;
+};
+
+export type Section = {
+  id: number;
+  ref: string;                   // "IV", "Exhibit B"
+  title: string;                 // "SCOPE OF WORK"
+  position: number;
+  assigneeId: number | null;     // the section's owner; items can be given to someone else
+};
+
+export type LineAnswer = {
+  answer: Answer;
+  note: string | null;
+  personId: number;
+  personName: string;
+  status: "draft" | "submitted";
 };
 
 export type Requirement = {
   id: number;
   reqRef: string;
-  section: string | null;
+  section: string | null;        // the RFP's own reference, e.g. "IV.A.1"
+  sectionId: number | null;
   text: string;
   type: string;
   priority: Priority;
   page: number | null;
   createdBy: "ai" | "reviewer";
-  edited: boolean;               // changed by a reviewer after extraction (edit or merge)
+  edited: boolean;               // changed by a person after extraction (edit or merge)
+  assigneeId: number | null;
+  response: LineAnswer | null;
 };
 
 export type RequirementInput = {
   section: string | null;
+  sectionId: number | null;
   text: string;
   type: RowType;
   priority: Priority;
@@ -57,7 +81,7 @@ export type RequirementInput = {
 export type Change = {
   id: number;
   requirementId: number | null;
-  action: "add" | "edit" | "merge" | "delete" | "confirm" | "reopen";
+  action: "add" | "edit" | "merge" | "delete" | "confirm" | "reopen" | "assign" | "answer" | "forward" | "send_out";
   before: unknown;
   after: unknown;
   reviewer: string;
@@ -67,16 +91,23 @@ export type Change = {
 
 const RFP_COLUMNS = `
   r.id, r.buyer, r.title, r.source_file, r.due_date, r.extract_model, r.extract_prompt_version,
-  r.extracted_at, r.requirements_confirmed_by, r.requirements_confirmed_at,
+  r.extracted_at, r.sent_out_by, r.sent_out_at,
   (select count(*) from requirement q where q.rfp_id = r.id) as row_count`;
 
 const REQUIREMENT_COLUMNS = `
-  q.id, q.req_ref, q.rfp_section, q.text, q.type, q.mandatory, q.scored, q.page, q.created_by,
+  q.id, q.req_ref, q.rfp_section, q.section_id, q.text, q.type, q.mandatory, q.scored, q.page, q.created_by,
+  q.assignee_id,
   exists (select 1 from requirement_change c
-          where c.requirement_id = q.id and c.action in ('edit', 'merge')) as edited`;
+          where c.requirement_id = q.id and c.action in ('edit', 'merge')) as edited,
+  a.answer, a.note, a.person_id as answer_person_id, p.name as answer_person_name, a.status as answer_status`;
 
-// Extraction inserts rows in document order, so (page, id) keeps added rows next to their page.
-const DOCUMENT_ORDER = "q.page nulls last, q.id";
+const REQUIREMENT_FROM = `
+  requirement q
+  left join line_response a on a.requirement_id = q.id
+  left join person p on p.id = a.person_id`;
+
+// Sections in document order; within one, extraction order (page, then id) keeps added rows by their page.
+const DOCUMENT_ORDER = "s.position nulls last, q.page nulls last, q.id";
 
 // ---------------------------------------------------------------------------- reads
 
@@ -90,9 +121,21 @@ export async function getRfp(db: Db, rfpId: number): Promise<Rfp | null> {
   return rows[0] ? toRfp(rows[0]) : null;
 }
 
+export async function listSections(db: Db, rfpId: number): Promise<Section[]> {
+  const { rows } = await db.query(
+    `select id, ref, title, position, assignee_id from rfp_section where rfp_id = $1 order by position`, [rfpId],
+  );
+  return rows.map((r) => ({
+    id: Number(r.id), ref: r.ref, title: r.title, position: r.position,
+    assigneeId: r.assignee_id === null ? null : Number(r.assignee_id),
+  }));
+}
+
 export async function listRequirements(db: Db, rfpId: number): Promise<Requirement[]> {
   const { rows } = await db.query<RequirementRow>(
-    `select ${REQUIREMENT_COLUMNS} from requirement q where q.rfp_id = $1 order by ${DOCUMENT_ORDER}`,
+    `select ${REQUIREMENT_COLUMNS} from ${REQUIREMENT_FROM}
+     left join rfp_section s on s.id = q.section_id
+     where q.rfp_id = $1 order by ${DOCUMENT_ORDER}`,
     [rfpId],
   );
   return rows.map(toRequirement);
@@ -116,6 +159,14 @@ export async function listChanges(db: Db, rfpId: number): Promise<Change[]> {
   }));
 }
 
+export async function getRequirement(db: Db, requirementId: number): Promise<Requirement> {
+  const { rows } = await db.query<RequirementRow>(
+    `select ${REQUIREMENT_COLUMNS} from ${REQUIREMENT_FROM} where q.id = $1`, [requirementId],
+  );
+  if (!rows[0]) throw new CheckpointError("This line item no longer exists.");
+  return toRequirement(rows[0]);
+}
+
 // ---------------------------------------------------------------------------- changes
 
 export async function addRequirement(
@@ -124,10 +175,13 @@ export async function addRequirement(
   const name = checkReviewer(reviewer);
   const row = checkInput(input);
   await lockOpenList(db, rfpId);
+  await checkSection(db, rfpId, row.sectionId);
   const { rows } = await db.query(
-    `insert into requirement (rfp_id, req_ref, rfp_section, text, type, mandatory, scored, page, created_by)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, 'reviewer') returning id`,
-    [rfpId, await nextRef(db, rfpId), row.section, row.text, row.type,
+    `insert into requirement (rfp_id, req_ref, rfp_section, section_id, text, type, mandatory, scored, page,
+                              assignee_id, created_by)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+             (select assignee_id from rfp_section where id = $4), 'reviewer') returning id`,
+    [rfpId, await nextRef(db, rfpId), row.section, row.sectionId, row.text, row.type,
      row.priority === "mandatory", row.priority === "scored", row.page],
   );
   const added = await getRequirement(db, Number(rows[0].id));
@@ -135,7 +189,7 @@ export async function addRequirement(
   return added;
 }
 
-/** Change some fields of one row. Returns the row; an edit that changes nothing is not logged. */
+/** Change some fields of one item. Returns the item; an edit that changes nothing is not logged. */
 export async function editRequirement(
   db: Db, requirementId: number, changes: Partial<RequirementInput>, reviewer: string, reason?: string,
 ): Promise<Requirement> {
@@ -145,11 +199,13 @@ export async function editRequirement(
   await lockOpenList(db, rfpId);
   const row = checkInput({ ...inputOf(current), ...changes });
   if (sameInput(row, inputOf(current))) return current;
+  await checkSection(db, rfpId, row.sectionId);
 
   await db.query(
-    `update requirement set rfp_section = $2, text = $3, type = $4, mandatory = $5, scored = $6, page = $7
+    `update requirement set rfp_section = $2, section_id = $3, text = $4, type = $5, mandatory = $6, scored = $7,
+            page = $8
      where id = $1`,
-    [requirementId, row.section, row.text, row.type,
+    [requirementId, row.section, row.sectionId, row.text, row.type,
      row.priority === "mandatory", row.priority === "scored", row.page],
   );
   const updated = await getRequirement(db, requirementId);
@@ -158,33 +214,39 @@ export async function editRequirement(
 }
 
 /**
- * Merge two or more rows of one RFP into the first of them in document order.
- * The other rows are deleted; the log keeps every original row.
+ * Merge two or more items of one RFP into the first of them in document order.
+ * The other items are deleted; the log keeps every original. Answered items can't be merged.
  */
 export async function mergeRequirements(
   db: Db, requirementIds: number[], merged: RequirementInput, reviewer: string, reason?: string,
 ): Promise<Requirement> {
   const name = checkReviewer(reviewer);
   const ids = [...new Set(requirementIds)];
-  if (ids.length < 2) throw new CheckpointError("Pick at least two rows to merge.");
+  if (ids.length < 2) throw new CheckpointError("Pick at least two line items to merge.");
   const row = checkInput(merged);
 
   const { rows } = await db.query(
-    `select q.id, q.rfp_id from requirement q where q.id = any($1) order by ${DOCUMENT_ORDER}`, [ids],
+    `select q.id, q.rfp_id from requirement q left join rfp_section s on s.id = q.section_id
+     where q.id = any($1) order by ${DOCUMENT_ORDER}`, [ids],
   );
-  if (rows.length !== ids.length) throw new CheckpointError("Some of these rows no longer exist.");
+  if (rows.length !== ids.length) throw new CheckpointError("Some of these line items no longer exist.");
   const rfpIds = new Set(rows.map((r) => Number(r.rfp_id)));
-  if (rfpIds.size !== 1) throw new CheckpointError("Only rows from the same RFP can be merged.");
+  if (rfpIds.size !== 1) throw new CheckpointError("Only line items from the same RFP can be merged.");
   const rfpId = [...rfpIds][0];
   await lockOpenList(db, rfpId);
+  await checkSection(db, rfpId, row.sectionId);
 
   const originals = await Promise.all(rows.map((r) => getRequirement(db, Number(r.id))));
+  if (originals.some((r) => r.response)) {
+    throw new CheckpointError("Answered line items can't be merged.");
+  }
   const [keep, ...rest] = originals;
   await db.query(`delete from requirement where id = any($1)`, [rest.map((r) => r.id)]);
   await db.query(
-    `update requirement set rfp_section = $2, text = $3, type = $4, mandatory = $5, scored = $6, page = $7
+    `update requirement set rfp_section = $2, section_id = $3, text = $4, type = $5, mandatory = $6, scored = $7,
+            page = $8
      where id = $1`,
-    [keep.id, row.section, row.text, row.type,
+    [keep.id, row.section, row.sectionId, row.text, row.type,
      row.priority === "mandatory", row.priority === "scored", row.page],
   );
   const result = await getRequirement(db, keep.id);
@@ -199,44 +261,16 @@ export async function deleteRequirement(
   const current = await getRequirement(db, requirementId);
   const rfpId = await rfpOf(db, requirementId);
   await lockOpenList(db, rfpId);
+  if (current.response) throw new CheckpointError("Answered line items can't be deleted.");
   await db.query(`delete from requirement where id = $1`, [requirementId]);
   await logChange(db, rfpId, requirementId, "delete", snapshot(current), null, name, reason);
-}
-
-/** Checkpoint A sign-off: the list is final and drafting can start. */
-export async function confirmRequirements(db: Db, rfpId: number, reviewer: string): Promise<void> {
-  const name = checkReviewer(reviewer);
-  await lockOpenList(db, rfpId);
-  const { rows } = await db.query(`select count(*) as n from requirement where rfp_id = $1`, [rfpId]);
-  const count = Number(rows[0].n);
-  if (count === 0) throw new CheckpointError("There are no rows to confirm.");
-  await db.query(
-    `update rfp set requirements_confirmed_by = $2, requirements_confirmed_at = now() where id = $1`,
-    [rfpId, name],
-  );
-  await logChange(db, rfpId, null, "confirm", null, { rows: count }, name);
-}
-
-export async function reopenRequirements(db: Db, rfpId: number, reviewer: string, reason: string): Promise<void> {
-  const name = checkReviewer(reviewer);
-  if (!reason?.trim()) throw new CheckpointError("Give a reason for reopening the list.");
-  const { rows } = await db.query(
-    `select requirements_confirmed_by from rfp where id = $1 for update`, [rfpId],
-  );
-  if (!rows[0]) throw new CheckpointError("This RFP does not exist.");
-  if (!rows[0].requirements_confirmed_by) throw new CheckpointError("This list is not confirmed yet.");
-  await db.query(
-    `update rfp set requirements_confirmed_by = null, requirements_confirmed_at = null where id = $1`, [rfpId],
-  );
-  await logChange(db, rfpId, null, "reopen", { confirmed_by: rows[0].requirements_confirmed_by }, null,
-                  name, reason);
 }
 
 // ---------------------------------------------------------------------------- helpers
 
 export function checkReviewer(reviewer: string): string {
   const name = (reviewer ?? "").trim();
-  if (!name) throw new CheckpointError("Enter your name before making changes.");
+  if (!name) throw new CheckpointError("Choose who you are before making changes.");
   if (["ai", "system"].includes(name.toLowerCase())) {
     throw new CheckpointError("Changes must be made by a named person.");
   }
@@ -245,33 +279,35 @@ export function checkReviewer(reviewer: string): string {
 
 export function checkInput(input: RequirementInput): RequirementInput {
   const text = (input.text ?? "").trim();
-  if (!text) throw new CheckpointError("The requirement text can't be empty.");
+  if (!text) throw new CheckpointError("The line item text can't be empty.");
   if (!ROW_TYPES.includes(input.type)) throw new CheckpointError(`Unknown type: ${input.type}`);
   if (!PRIORITIES.includes(input.priority)) throw new CheckpointError(`Unknown priority: ${input.priority}`);
   const page = input.page;
   if (page !== null && (!Number.isInteger(page) || page < 1)) {
     throw new CheckpointError("Page must be a whole number of 1 or more.");
   }
-  return { section: input.section?.trim() || null, text, type: input.type, priority: input.priority, page };
+  return { section: input.section?.trim() || null, sectionId: input.sectionId ?? null, text, type: input.type,
+           priority: input.priority, page };
 }
 
-async function lockOpenList(db: Db, rfpId: number): Promise<void> {
-  const { rows } = await db.query(`select requirements_confirmed_at from rfp where id = $1 for update`, [rfpId]);
+/** The list can change until the RFP is sent out to experts. */
+export async function lockOpenList(db: Db, rfpId: number): Promise<void> {
+  const { rows } = await db.query(`select sent_out_at from rfp where id = $1 for update`, [rfpId]);
   if (!rows[0]) throw new CheckpointError("This RFP does not exist.");
-  if (rows[0].requirements_confirmed_at) {
-    throw new CheckpointError("This list is confirmed. Reopen it to make changes.");
+  if (rows[0].sent_out_at) {
+    throw new CheckpointError("This RFP has been sent to experts, so line items can't change. You can still reassign them.");
   }
 }
 
-async function getRequirement(db: Db, requirementId: number): Promise<Requirement> {
-  const { rows } = await db.query<RequirementRow>(`select ${REQUIREMENT_COLUMNS} from requirement q where q.id = $1`,
-                                  [requirementId]);
-  if (!rows[0]) throw new CheckpointError("This row no longer exists.");
-  return toRequirement(rows[0]);
+async function checkSection(db: Db, rfpId: number, sectionId: number | null): Promise<void> {
+  if (sectionId === null) throw new CheckpointError("Choose a section for this line item.");
+  const { rows } = await db.query(`select 1 from rfp_section where id = $1 and rfp_id = $2`, [sectionId, rfpId]);
+  if (!rows[0]) throw new CheckpointError("That section is not part of this RFP.");
 }
 
-async function rfpOf(db: Db, requirementId: number): Promise<number> {
+export async function rfpOf(db: Db, requirementId: number): Promise<number> {
   const { rows } = await db.query(`select rfp_id from requirement where id = $1`, [requirementId]);
+  if (!rows[0]) throw new CheckpointError("This line item no longer exists.");
   return Number(rows[0].rfp_id);
 }
 
@@ -284,7 +320,7 @@ async function nextRef(db: Db, rfpId: number): Promise<string> {
   return `R-${String(rows[0].n).padStart(3, "0")}`;
 }
 
-async function logChange(
+export async function logChange(
   db: Db, rfpId: number, requirementId: number | null, action: Change["action"],
   before: unknown, after: unknown, reviewer: string, reason?: string,
 ): Promise<void> {
@@ -300,28 +336,32 @@ function json(value: unknown): string | null {
 }
 
 function snapshot(r: Requirement) {
-  return { req_ref: r.reqRef, rfp_section: r.section, text: r.text, type: r.type,
+  return { req_ref: r.reqRef, rfp_section: r.section, section_id: r.sectionId, text: r.text, type: r.type,
            priority: r.priority, page: r.page, created_by: r.createdBy };
 }
 
 function inputOf(r: Requirement): RequirementInput {
-  return { section: r.section, text: r.text, type: r.type as RowType, priority: r.priority, page: r.page };
+  return { section: r.section, sectionId: r.sectionId, text: r.text, type: r.type as RowType,
+           priority: r.priority, page: r.page };
 }
 
 function sameInput(a: RequirementInput, b: RequirementInput): boolean {
-  return a.section === b.section && a.text === b.text && a.type === b.type
+  return a.section === b.section && a.sectionId === b.sectionId && a.text === b.text && a.type === b.type
     && a.priority === b.priority && a.page === b.page;
 }
 
 type RfpRow = {
   id: string; buyer: string; title: string; source_file: string; due_date: Date | null;
   extract_model: string | null; extract_prompt_version: string | null; extracted_at: Date | null;
-  requirements_confirmed_by: string | null; requirements_confirmed_at: Date | null; row_count: string;
+  sent_out_by: string | null; sent_out_at: Date | null; row_count: string;
 };
 
 type RequirementRow = {
-  id: string; req_ref: string; rfp_section: string | null; text: string; type: string; mandatory: boolean;
-  scored: boolean; page: number | null; created_by: "ai" | "reviewer"; edited: boolean;
+  id: string; req_ref: string; rfp_section: string | null; section_id: string | null; text: string; type: string;
+  mandatory: boolean; scored: boolean; page: number | null; created_by: "ai" | "reviewer";
+  assignee_id: string | null; edited: boolean;
+  answer: Answer | null; note: string | null; answer_person_id: string | null; answer_person_name: string | null;
+  answer_status: "draft" | "submitted" | null;
 };
 
 function toRfp(r: RfpRow): Rfp {
@@ -334,8 +374,8 @@ function toRfp(r: RfpRow): Rfp {
     extractModel: r.extract_model,
     extractPromptVersion: r.extract_prompt_version,
     extractedAt: r.extracted_at,
-    confirmedBy: r.requirements_confirmed_by,
-    confirmedAt: r.requirements_confirmed_at,
+    sentOutBy: r.sent_out_by,
+    sentOutAt: r.sent_out_at,
     rowCount: Number(r.row_count),
   };
 }
@@ -345,11 +385,20 @@ function toRequirement(r: RequirementRow): Requirement {
     id: Number(r.id),
     reqRef: r.req_ref,
     section: r.rfp_section,
+    sectionId: r.section_id === null ? null : Number(r.section_id),
     text: r.text,
     type: r.type,
     priority: r.mandatory ? "mandatory" : r.scored ? "scored" : "optional",
     page: r.page,
     createdBy: r.created_by,
     edited: r.edited,
+    assigneeId: r.assignee_id === null ? null : Number(r.assignee_id),
+    response: r.answer === null ? null : {
+      answer: r.answer,
+      note: r.note,
+      personId: Number(r.answer_person_id),
+      personName: r.answer_person_name ?? "",
+      status: r.answer_status ?? "draft",
+    },
   };
 }

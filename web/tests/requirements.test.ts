@@ -1,59 +1,53 @@
-import { Client } from "pg";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
-  CheckpointError, addRequirement, confirmRequirements, deleteRequirement, editRequirement,
-  listChanges, listRequirements, mergeRequirements, reopenRequirements, type RequirementInput,
+  CheckpointError, addRequirement, deleteRequirement, editRequirement, listChanges, listRequirements,
+  mergeRequirements, type RequirementInput,
 } from "../lib/requirements";
+import { answerMyself } from "../lib/assignments";
+import { db, item, person, rfp, section, sendOut, url, useRolledBackDb } from "./helpers";
 
-// Runs against the local test database (npx supabase start); every test is rolled back.
-const url = process.env.TEST_DATABASE_URL;
-const db = new Client({ connectionString: url });
+const row = (sectionId: number): RequirementInput => ({
+  section: "IV.A", sectionId, text: "Provide a CRM", type: "Functional", priority: "optional", page: 4,
+});
 
-const ROW: RequirementInput = { section: "IV.A", text: "Provide a CRM", type: "Functional",
-                                priority: "optional", page: 4 };
+describe.skipIf(!url)("line-item list", () => {
+  useRolledBackDb();
 
-async function rfp(): Promise<number> {
-  const { rows } = await db.query(
-    `insert into rfp (buyer, title, source_file) values ('Test buyer', 'Test RFP', 'x.pdf') returning id`,
-  );
-  return Number(rows[0].id);
-}
-
-async function aiRow(rfpId: number, ref: string, page: number, text: string, mandatory = false) {
-  const { rows } = await db.query(
-    `insert into requirement (rfp_id, req_ref, rfp_section, text, type, mandatory, page, created_by)
-     values ($1, $2, 'Exhibit B.6', $3, 'Legal', $4, $5, 'ai') returning id`,
-    [rfpId, ref, text, mandatory, page],
-  );
-  return Number(rows[0].id);
-}
-
-describe.skipIf(!url)("Checkpoint A requirement list", () => {
-  beforeAll(() => db.connect());
-  afterAll(() => db.end());
-  beforeEach(() => db.query("begin"));
-  afterEach(() => db.query("rollback"));
-
-  it("adds a reviewer row with the next reference and logs it", async () => {
+  it("adds a person's row with the next reference, in its section, and logs it", async () => {
     const id = await rfp();
-    await aiRow(id, "R-007", 3, "Existing row");
-    const added = await addRequirement(db, id, ROW, "Dana");
-    expect(added).toMatchObject({ reqRef: "R-008", createdBy: "reviewer", priority: "optional" });
+    const s = await section(id, "IV");
+    await item(id, s, "R-007", 3, "Existing row");
+    const added = await addRequirement(db, id, row(s), "Dana");
+    expect(added).toMatchObject({ reqRef: "R-008", createdBy: "reviewer", priority: "optional", sectionId: s });
     const [change] = await listChanges(db, id);
     expect(change).toMatchObject({ action: "add", reviewer: "Dana", requirementId: added.id, before: null });
   });
 
+  it("gives an added row to the section's owner", async () => {
+    const id = await rfp();
+    const s = await section(id, "Exhibit B");
+    const elena = await person("Test Elena", "Legal");
+    await db.query(`update rfp_section set assignee_id = $2 where id = $1`, [s, elena.id]);
+    expect((await addRequirement(db, id, row(s), "Dana")).assigneeId).toBe(elena.id);
+  });
+
+  it("refuses a section from another RFP", async () => {
+    const id = await rfp();
+    const other = await section(await rfp(), "IV");
+    await expect(addRequirement(db, id, row(other), "Dana")).rejects.toThrow("not part of this RFP");
+  });
+
   it("stores mandatory and scored as separate flags", async () => {
     const id = await rfp();
-    const added = await addRequirement(db, id, { ...ROW, priority: "scored" }, "Dana");
+    const added = await addRequirement(db, id, { ...row(await section(id, "IV")), priority: "scored" }, "Dana");
     const { rows } = await db.query(`select mandatory, scored from requirement where id = $1`, [added.id]);
     expect(rows[0]).toEqual({ mandatory: false, scored: true });
   });
 
   it("logs an edit with the row before and after, and marks the row edited", async () => {
     const id = await rfp();
-    const rowId = await aiRow(id, "R-001", 5, "Report breaches");
+    const rowId = await item(id, await section(id, "Exhibit B"), "R-001", 5, "Report breaches");
     const edited = await editRequirement(db, rowId, { priority: "mandatory" }, "Dana", "Section says shall");
     expect(edited).toMatchObject({ priority: "mandatory", edited: true, createdBy: "ai" });
     const [change] = await listChanges(db, id);
@@ -63,18 +57,19 @@ describe.skipIf(!url)("Checkpoint A requirement list", () => {
 
   it("does not log an edit that changes nothing", async () => {
     const id = await rfp();
-    const rowId = await aiRow(id, "R-001", 5, "Report breaches");
+    const rowId = await item(id, await section(id, "Exhibit B"), "R-001", 5, "Report breaches");
     await editRequirement(db, rowId, { text: "  Report breaches " }, "Dana");
     expect(await listChanges(db, id)).toHaveLength(0);
   });
 
   it("merges rows into the first one in document order and keeps every original in the log", async () => {
     const id = await rfp();
-    const later = await aiRow(id, "R-002", 9, "Name the data involved", true);
-    const first = await aiRow(id, "R-001", 8, "Name the kind of access");
+    const s = await section(id, "Exhibit B");
+    const later = await item(id, s, "R-002", 9, "Name the data involved", { mandatory: true });
+    const first = await item(id, s, "R-001", 8, "Name the kind of access");
     const merged = await mergeRequirements(
       db, [later, first],
-      { section: "Exhibit B.6", text: "Breach report contents", type: "Legal", priority: "mandatory", page: 8 },
+      { section: "Exhibit B.6", sectionId: s, text: "Breach report contents", type: "Legal", priority: "mandatory", page: 8 },
       "Dana",
     );
     expect(merged).toMatchObject({ id: first, reqRef: "R-001", text: "Breach report contents" });
@@ -87,15 +82,15 @@ describe.skipIf(!url)("Checkpoint A requirement list", () => {
   it("refuses to merge fewer than two rows or rows from different RFPs", async () => {
     const a = await rfp();
     const b = await rfp();
-    const rowA = await aiRow(a, "R-001", 1, "One");
-    const rowB = await aiRow(b, "R-001", 1, "Two");
-    await expect(mergeRequirements(db, [rowA], ROW, "Dana")).rejects.toThrow(CheckpointError);
-    await expect(mergeRequirements(db, [rowA, rowB], ROW, "Dana")).rejects.toThrow("same RFP");
+    const rowA = await item(a, await section(a, "IV"), "R-001", 1, "One");
+    const rowB = await item(b, await section(b, "IV"), "R-001", 1, "Two");
+    await expect(mergeRequirements(db, [rowA], row(1), "Dana")).rejects.toThrow(CheckpointError);
+    await expect(mergeRequirements(db, [rowA, rowB], row(1), "Dana")).rejects.toThrow("same RFP");
   });
 
   it("deletes a row and keeps what it said in the log", async () => {
     const id = await rfp();
-    const rowId = await aiRow(id, "R-001", 2, "Packing label on every box");
+    const rowId = await item(id, await section(id, "Packing Label"), "R-001", 2, "Packing label on every box");
     await deleteRequirement(db, rowId, "Dana", "Not a vendor obligation");
     expect(await listRequirements(db, id)).toHaveLength(0);
     const [change] = await listChanges(db, id);
@@ -103,45 +98,41 @@ describe.skipIf(!url)("Checkpoint A requirement list", () => {
                                    before: { text: "Packing label on every box" }, after: null });
   });
 
-  it("locks the list once it is confirmed", async () => {
+  it("will not merge or delete answered rows", async () => {
     const id = await rfp();
-    const rowId = await aiRow(id, "R-001", 2, "Row");
-    const other = await aiRow(id, "R-002", 3, "Other row");
-    await confirmRequirements(db, id, "Dana");
-    const locked = "Reopen it";
-    await expect(addRequirement(db, id, ROW, "Dana")).rejects.toThrow(locked);
+    const s = await section(id, "IV");
+    const a = await item(id, s, "R-001", 1, "One");
+    const b = await item(id, s, "R-002", 1, "Two");
+    await answerMyself(db, a, await person("Test Morgan", "Proposal Manager"), "Yes", "");
+    await expect(deleteRequirement(db, a, "Dana")).rejects.toThrow("Answered");
+    await expect(mergeRequirements(db, [a, b], row(s), "Dana")).rejects.toThrow("Answered");
+  });
+
+  it("locks the list once the RFP is sent out to experts", async () => {
+    const id = await rfp();
+    const s = await section(id, "IV");
+    const rowId = await item(id, s, "R-001", 2, "Row");
+    const other = await item(id, s, "R-002", 3, "Other row");
+    await sendOut(id);
+    const locked = "sent to experts";
+    await expect(addRequirement(db, id, row(s), "Dana")).rejects.toThrow(locked);
     await expect(editRequirement(db, rowId, { text: "New" }, "Dana")).rejects.toThrow(locked);
     await expect(deleteRequirement(db, rowId, "Dana")).rejects.toThrow(locked);
-    await expect(mergeRequirements(db, [rowId, other], ROW, "Dana")).rejects.toThrow(locked);
-    await expect(confirmRequirements(db, id, "Dana")).rejects.toThrow(locked);
-  });
-
-  it("reopens a confirmed list only with a reason", async () => {
-    const id = await rfp();
-    const rowId = await aiRow(id, "R-001", 2, "Row");
-    await confirmRequirements(db, id, "Dana");
-    await expect(reopenRequirements(db, id, "Dana", " ")).rejects.toThrow("reason");
-    await reopenRequirements(db, id, "Dana", "Missed an addendum");
-    await editRequirement(db, rowId, { text: "Row, per addendum 1" }, "Dana");
-    expect((await listChanges(db, id)).map((c) => c.action)).toEqual(["edit", "reopen", "confirm"]);
-  });
-
-  it("will not confirm an empty list", async () => {
-    const id = await rfp();
-    await expect(confirmRequirements(db, id, "Dana")).rejects.toThrow("no rows");
+    await expect(mergeRequirements(db, [rowId, other], row(s), "Dana")).rejects.toThrow(locked);
   });
 
   it("only accepts changes from a named person", async () => {
     const id = await rfp();
-    await expect(addRequirement(db, id, ROW, "")).rejects.toThrow("Enter your name");
-    await expect(addRequirement(db, id, ROW, "AI")).rejects.toThrow("named person");
-    await expect(confirmRequirements(db, id, "system")).rejects.toThrow("named person");
+    const s = await section(id, "IV");
+    await expect(addRequirement(db, id, row(s), "")).rejects.toThrow("Choose who you are");
+    await expect(addRequirement(db, id, row(s), "AI")).rejects.toThrow("named person");
   });
 
   it("rejects empty text, unknown types and bad page numbers", async () => {
     const id = await rfp();
-    await expect(addRequirement(db, id, { ...ROW, text: "  " }, "Dana")).rejects.toThrow("empty");
-    await expect(addRequirement(db, id, { ...ROW, type: "Other" as never }, "Dana")).rejects.toThrow("type");
-    await expect(addRequirement(db, id, { ...ROW, page: 0 }, "Dana")).rejects.toThrow("Page");
+    const s = await section(id, "IV");
+    await expect(addRequirement(db, id, { ...row(s), text: "  " }, "Dana")).rejects.toThrow("empty");
+    await expect(addRequirement(db, id, { ...row(s), type: "Other" as never }, "Dana")).rejects.toThrow("type");
+    await expect(addRequirement(db, id, { ...row(s), page: 0 }, "Dana")).rejects.toThrow("Page");
   });
 });
