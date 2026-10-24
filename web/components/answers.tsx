@@ -10,7 +10,7 @@ import { ANSWERS, type Answer, type Requirement, type Suggestion } from "@/lib/r
 export function SuggestionBox({ suggestion }: { suggestion: Suggestion | null }) {
   if (!suggestion) return null;
   return (
-    <div className="mt-1.5 rounded-md border border-dashed border-zinc-300 px-2.5 py-1.5 text-xs dark:border-zinc-700">
+    <div className="mt-1.5 rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-2.5 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-800/40">
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="font-medium text-zinc-500">AI suggestion</span>
         {suggestion.answer

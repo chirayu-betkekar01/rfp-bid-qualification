@@ -173,8 +173,8 @@ export function ManagerView({ rfp, sections, rows, changes, people, actor }: {
               const key = group.section?.id ?? 0;
               const answered = group.rows.filter((r) => r.response).length;
               return (
-                <div key={key} className="overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-zinc-100/80 px-3 py-2 dark:bg-zinc-800/60">
+                <div key={key} className="rounded-xl border border-zinc-200 bg-zinc-100/70 dark:border-zinc-800 dark:bg-zinc-900/60">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
                     {canAssign && (
                       <input type="checkbox" aria-label={`Select every line item in ${group.section?.ref ?? "this group"}`}
                              checked={group.rows.every((r) => selected.has(r.id))} onChange={() => toggleGroup(group)} />
@@ -201,7 +201,7 @@ export function ManagerView({ rfp, sections, rows, changes, people, actor }: {
                     )}
                   </div>
                   {!collapsed.has(key) && (
-                    <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                    <ul className="space-y-2 px-2 pb-2">
                       {group.rows.map((row) => (
                         <RowItem key={row.id} row={row} rfpId={rfp.id} sections={sections}
                                  owner={row.assigneeId === null ? null : byId.get(row.assigneeId) ?? null}
@@ -421,7 +421,7 @@ function RowItem({ row, rfpId, sections, owner, canEdit, canAssign, actor, pendi
   const changing = mode?.kind === "answer" && mode.id === row.id;
 
   return (
-    <li id={`item-${row.id}`} className={`scroll-mt-4 border-l-2 px-3 py-3 ${active ? "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/30" : "border-transparent"}`}>
+    <li id={`item-${row.id}`} className={`scroll-mt-4 rounded-lg border bg-white p-3 shadow-sm dark:bg-zinc-900 ${active ? "border-indigo-400 ring-1 ring-indigo-400 dark:border-indigo-500 dark:ring-indigo-500" : "border-zinc-200 dark:border-zinc-700"}`}>
       <div className="flex items-start gap-3">
         {canAssign && (
           <input type="checkbox" className="mt-1" aria-label={`Select ${row.reqRef}`} checked={selected} onChange={onToggle} />
@@ -455,8 +455,6 @@ function RowItem({ row, rfpId, sections, owner, canEdit, canAssign, actor, pendi
 
           <button onClick={onActivate} className="block w-full text-left text-sm leading-snug">{row.text}</button>
 
-          {!row.response && <SuggestionBox suggestion={row.suggestion} />}
-
           {row.response && !changing ? (
             <div className="flex flex-wrap items-center gap-3">
               <AnswerLine response={row.response} />
@@ -470,6 +468,8 @@ function RowItem({ row, rfpId, sections, owner, canEdit, canAssign, actor, pendi
                          onCancel={changing ? () => setMode(null) : undefined}
                          onAnswer={(answer, note) => act(() => answerRowMyself(row.id, answer, note))} />
           )}
+
+          {!row.response && <SuggestionBox suggestion={row.suggestion} />}
 
           {row.page && (
             <a href={`/rfps/${rfpId}/source#page=${row.page}`} target="_blank" rel="noreferrer"

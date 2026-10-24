@@ -129,12 +129,12 @@ function RfpCard({ rfp, token, people, activeId, onActivate }: {
         </form>
       )}
 
-      <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+      <ul className="space-y-2 bg-zinc-100/70 p-2 dark:bg-zinc-950/40">
         {waiting.map((row) => {
           const section = row.sectionId ? sectionOf.get(row.sectionId) : undefined;
           const answeredRow = row.response !== null && editing !== row.id;
           return (
-            <li key={row.id} className={`border-l-2 px-4 py-3 ${row.id === activeId ? "border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/20" : "border-transparent"}`}>
+            <li key={row.id} className={`rounded-lg border bg-white p-3 shadow-sm dark:bg-zinc-900 ${row.id === activeId ? "border-indigo-400 ring-1 ring-indigo-400 dark:border-indigo-500 dark:ring-indigo-500" : "border-zinc-200 dark:border-zinc-700"}`}>
               <div className="flex items-start gap-3">
                 <input type="checkbox" className="mt-1" aria-label={`Select ${row.reqRef} to forward`}
                        checked={selected.has(row.id)}
@@ -165,7 +165,6 @@ function RfpCard({ rfp, token, people, activeId, onActivate }: {
                     </div>
                   ) : (
                     <>
-                      <SuggestionBox suggestion={row.suggestion} />
                       <div className="mt-2">
                         <QuickAnswer pending={pending} initialNote={row.response?.note ?? ""}
                                      onCancel={row.response ? () => setEditing(null) : undefined}
@@ -173,6 +172,7 @@ function RfpCard({ rfp, token, people, activeId, onActivate }: {
                                        () => saveMyAnswer(token, row.id, answer, note, row.suggestion?.id ?? null),
                                        () => setEditing(null))} />
                       </div>
+                      <SuggestionBox suggestion={row.suggestion} />
                     </>
                   )}
                   {row.page && (
