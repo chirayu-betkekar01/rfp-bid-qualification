@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { refresh } from "next/cache";
 
-import { answerMyself, assignItem, assignSection, assignSuggested } from "@/lib/assignments";
+import { answerMyself, assignItem, assignItems, assignSection, assignSuggested } from "@/lib/assignments";
 import { inTransaction, pool } from "@/lib/db";
 import {
   forwardItems, nudge, reassignedMessage, saveDraft, sendOut, submitAnswers,
@@ -61,6 +61,17 @@ export async function assignRowTo(requirementId: number, personId: number | null
     const { rfpId, messages } = await inTransaction(async (db) => {
       const moved = await assignItem(db, requirementId, personId, actor.name);
       const rfpId = await rfpOf(db, requirementId);
+      return { rfpId, messages: await reassignedMessage(db, rfpId, personId, moved, actor) };
+    });
+    await send(rfpId, messages);
+  });
+}
+
+export async function assignRowsTo(requirementIds: number[], personId: number | null) {
+  return run(async (actor) => {
+    const { rfpId, messages } = await inTransaction(async (db) => {
+      const moved = await assignItems(db, requirementIds, personId, actor.name);
+      const rfpId = await rfpOf(db, requirementIds[0]);
       return { rfpId, messages: await reassignedMessage(db, rfpId, personId, moved, actor) };
     });
     await send(rfpId, messages);

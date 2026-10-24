@@ -53,38 +53,48 @@ export function AnswerLine({ response }: { response: NonNullable<Requirement["re
   );
 }
 
-/** Yes / No / Maybe with a note. Nothing is selected until the person chooses, whatever the AI suggested. */
-export function AnswerForm({ initial, suggestion, pending, onSubmit, onCancel, submitLabel = "Save answer" }: {
-  initial: Requirement["response"]; suggestion?: Suggestion | null; pending: boolean; submitLabel?: string;
-  onSubmit: (answer: Answer, note: string) => void; onCancel?: () => void;
+const QUICK_TONES: Record<Answer, string> = {
+  Yes: "hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-800 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300",
+  No: "hover:border-red-400 hover:bg-red-50 hover:text-red-800 dark:hover:bg-red-950/40 dark:hover:text-red-300",
+  Maybe: "hover:border-amber-400 hover:bg-amber-50 hover:text-amber-800 dark:hover:bg-amber-950/40 dark:hover:text-amber-300",
+};
+
+/**
+ * Yes / No / Maybe right on the item. Yes saves at once; No and Maybe ask for a note first.
+ * Nothing is selected until the person chooses, whatever the AI suggested.
+ */
+export function QuickAnswer({ pending, onAnswer, initialNote = "", onCancel }: {
+  pending: boolean; onAnswer: (answer: Answer, note: string) => void; initialNote?: string; onCancel?: () => void;
 }) {
-  const [answer, setAnswer] = useState<Answer | null>(initial?.answer ?? null);
-  const [note, setNote] = useState(initial?.note ?? "");
-  const needsNote = answer !== null && answer !== "Yes";
+  const [picked, setPicked] = useState<Answer | null>(null);
+  const [note, setNote] = useState(initialNote);
   return (
-    <form className="mt-3 grid gap-2 rounded-md border border-indigo-200 bg-indigo-50/50 p-3 dark:border-indigo-900 dark:bg-indigo-950/30"
-          onSubmit={(e) => { e.preventDefault(); if (answer) onSubmit(answer, note); }}>
-      {suggestion && <SuggestionBox suggestion={suggestion} />}
-      <div role="radiogroup" aria-label="Can we meet this?" className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-zinc-600 dark:text-zinc-300">Can we meet this?</span>
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-xs text-zinc-500">Can we meet this?</span>
         {ANSWERS.map((a) => (
-          <button key={a} type="button" role="radio" aria-checked={answer === a} onClick={() => setAnswer(a)}
-                  className={`rounded-md border px-3 py-1 font-medium ${answer === a
+          <button key={a} type="button" disabled={pending} aria-pressed={picked === a}
+                  onClick={() => (a === "Yes" ? onAnswer("Yes", note) : setPicked(a))}
+                  className={`rounded-md border px-3 py-1 text-xs font-semibold disabled:opacity-50 ${picked === a
                     ? `${ANSWER_TONES[a]} border-transparent`
-                    : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"}`}>
+                    : `border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${QUICK_TONES[a]}`}`}>
             {a}
           </button>
         ))}
+        {onCancel && <button type="button" onClick={onCancel} className="px-1 text-xs text-zinc-500 hover:underline">Cancel</button>}
       </div>
-      <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
-                placeholder={needsNote ? `Why ${answer}? (required)` : "Note for the proposal manager (optional)"}
-                className={inputClass} required={needsNote} />
-      <div className="flex gap-2">
-        <button disabled={pending || !answer} className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
-          {submitLabel}
-        </button>
-        {onCancel && <button type="button" onClick={onCancel} className="px-2 text-sm">Cancel</button>}
-      </div>
-    </form>
+      {picked && picked !== "Yes" && (
+        <form className="flex flex-wrap items-center gap-2"
+              onSubmit={(e) => { e.preventDefault(); onAnswer(picked, note); }}>
+          <input autoFocus required value={note} onChange={(e) => setNote(e.target.value)}
+                 placeholder={`Why ${picked}? A short note for the proposal manager`}
+                 className={`${inputClass} min-w-56 flex-1`} />
+          <button disabled={pending} className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+            Save {picked}
+          </button>
+          <button type="button" onClick={() => setPicked(null)} className="px-1 text-xs text-zinc-500 hover:underline">Back</button>
+        </form>
+      )}
+    </div>
   );
 }

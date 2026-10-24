@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { answerMyself, assignItem, assignSection, assignSuggested } from "../lib/assignments";
+import { answerMyself, assignItem, assignItems, assignSection, assignSuggested } from "../lib/assignments";
 import { getRequirement, listChanges } from "../lib/requirements";
 import { assigneeOf, db, item, person, rfp, section, sendOut, url, useRolledBackDb } from "./helpers";
 
@@ -103,6 +103,18 @@ describe.skipIf(!url)("routing line items", () => {
     await expect(answerMyself(db, rowId, morgan, "Maybe", "")).rejects.toThrow("note");
     await answerMyself(db, rowId, morgan, "No", "Not FedRAMP authorized");
     expect((await getRequirement(db, rowId)).response?.note).toBe("Not FedRAMP authorized");
+  });
+
+  it("assigning a selection moves the unanswered items and skips answered ones", async () => {
+    const id = await rfp();
+    const s = await section(id, "IV");
+    const [a, b, done] = [await item(id, s, "R-001", 1, "One"), await item(id, s, "R-002", 1, "Two"),
+                          await item(id, s, "R-003", 1, "Answered")];
+    const morgan = await person("Test Morgan", "Proposal Manager");
+    await answerMyself(db, done, morgan, "Yes", "");
+    const sam = await person("Test Sam", "Security");
+    expect(await assignItems(db, [a, b, done], sam.id, "Morgan")).toBe(2);
+    expect([await assigneeOf(a), await assigneeOf(b), await assigneeOf(done)]).toEqual([sam.id, sam.id, morgan.id]);
   });
 
   it("an answered item can't be reassigned", async () => {

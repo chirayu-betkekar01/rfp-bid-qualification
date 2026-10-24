@@ -35,9 +35,11 @@ Each RFP has a navigation column on the left (tabs across the top on a phone):
   left, set by the AI from the RFP's wording: **Mandatory** (pass/fail), **Good to Have** (earns
   points but isn't pass/fail; stored as `scored`) or **Optional**. The manager corrects it with the
   tag's dropdown until the RFP is sent out.
-- Route it: **Give N unassigned items to their usual owners** sets an owner by item type; give a
-  whole section to one person, change single items, or **Answer myself** (Yes / No / Maybe, with a
-  note required for No and Maybe).
+- Route it: **Give N unassigned items to their usual owners** sets an owner by item type. **Assign**
+  on an item, **Assign section** on a section header, or **Assign** on a selection opens a popup
+  with the team grouped by role and the usual owner first.
+- Answer it yourself with the **Yes / No / Maybe** buttons on each item: Yes saves at once, No and
+  Maybe ask for a note first. Edit and Delete sit behind the **⋯** menu.
 - Every change goes to `requirement_change` with the person's name. Once the RFP is sent out to
   experts the list is locked; reassigning still works.
 

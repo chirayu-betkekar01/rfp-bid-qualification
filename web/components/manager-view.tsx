@@ -3,10 +3,11 @@
 import { useMemo, useState, useTransition } from "react";
 
 import {
-  addRow, answerRowMyself, assignAllSuggested, assignRowTo, assignSectionTo, deleteRow, editRow, mergeRows,
-  sendOutToExperts, type ActionResult,
+  addRow, answerRowMyself, assignAllSuggested, assignRowsTo, assignRowTo, assignSectionTo, deleteRow, editRow,
+  mergeRows, sendOutToExperts, type ActionResult,
 } from "@/app/actions";
-import { AnswerForm, AnswerLine, SuggestionBox } from "@/components/answers";
+import { AnswerLine, QuickAnswer, SuggestionBox } from "@/components/answers";
+import { AssignDialog, OwnerChip } from "@/components/assign-dialog";
 import { ChangeLog } from "@/components/change-log";
 import { PriorityTag } from "@/components/priority-tag";
 import { PRIORITY_LABELS, RowForm, fieldClass, inputClass } from "@/components/row-form";
@@ -21,6 +22,8 @@ type Mode =
   | { kind: "edit"; id: number } | { kind: "delete"; id: number } | { kind: "answer"; id: number } | null;
 
 type Status = "all" | "unassigned" | "waiting" | "answered";
+type AssignTarget = { kind: "section"; section: Section; open: number } | { kind: "item"; row: Requirement }
+  | { kind: "selection" };
 type Group = { section: Section | null; rows: Requirement[] };
 type Act = (change: () => Promise<ActionResult>, done?: () => void) => void;
 
@@ -41,6 +44,7 @@ export function ManagerView({ rfp, sections, rows, changes, people, actor }: {
   const [activeId, setActiveId] = useState<number | null>(rows[0]?.id ?? null);
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [mode, setMode] = useState<Mode>(null);
+  const [assigning, setAssigning] = useState<AssignTarget | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -171,7 +175,7 @@ export function ManagerView({ rfp, sections, rows, changes, people, actor }: {
               return (
                 <div key={key} className="overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-zinc-100/80 px-3 py-2 dark:bg-zinc-800/60">
-                    {canEdit && (
+                    {canAssign && (
                       <input type="checkbox" aria-label={`Select every line item in ${group.section?.ref ?? "this group"}`}
                              checked={group.rows.every((r) => selected.has(r.id))} onChange={() => toggleGroup(group)} />
                     )}
@@ -184,20 +188,27 @@ export function ManagerView({ rfp, sections, rows, changes, people, actor }: {
                       </span>
                     </button>
                     {group.section && (
-                      <OwnerSelect label={`Owner of section ${group.section.ref}`} people={people}
-                                   value={group.section.assigneeId} disabled={!canAssign || pending}
-                                   emptyLabel="No section owner"
-                                   onChange={(id) => act(() => assignSectionTo(group.section!.id, id))} />
+                      <div className="flex items-center gap-2">
+                        {group.section.assigneeId !== null && <OwnerChip person={byId.get(group.section.assigneeId) ?? null} />}
+                        {canAssign && (
+                          <button onClick={() => setAssigning({ kind: "section", section: group.section!,
+                                                                open: group.rows.filter((r) => !r.response).length })}
+                                  className={assignButton}>
+                            {group.section.assigneeId === null ? "Assign section" : "Reassign section"}
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                   {!collapsed.has(key) && (
                     <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
                       {group.rows.map((row) => (
-                        <RowItem key={row.id} row={row} rfpId={rfp.id} sections={sections} people={people} byId={byId}
+                        <RowItem key={row.id} row={row} rfpId={rfp.id} sections={sections}
+                                 owner={row.assigneeId === null ? null : byId.get(row.assigneeId) ?? null}
                                  canEdit={canEdit} canAssign={canAssign} actor={actor} pending={pending}
                                  active={row.id === activeId} selected={selected.has(row.id)} mode={mode}
                                  onActivate={() => setActiveId(row.id)} onToggle={() => toggle(row.id)}
-                                 setMode={setMode} act={act} />
+                                 onAssign={() => setAssigning({ kind: "item", row })} setMode={setMode} act={act} />
                       ))}
                     </ul>
                   )}
@@ -216,18 +227,37 @@ export function ManagerView({ rfp, sections, rows, changes, people, actor }: {
         </aside>
       </div>
 
-      {canEdit && picked.length > 0 && mode?.kind !== "merge" && (
+      {canAssign && picked.length > 0 && mode?.kind !== "merge" && (
         <div className="fixed inset-x-0 bottom-4 z-10 flex justify-center px-4">
           <div className="flex items-center gap-3 rounded-full bg-zinc-900 px-4 py-2 text-sm text-white shadow-lg dark:bg-zinc-100 dark:text-zinc-900">
             <span>{picked.length} selected</span>
-            <button disabled={picked.length < 2} onClick={() => setMode({ kind: "merge" })}
-                    className="rounded-full bg-indigo-500 px-3 py-1 font-medium text-white disabled:opacity-40">
-              Merge into one line item
+            <button onClick={() => setAssigning({ kind: "selection" })}
+                    className="rounded-full bg-indigo-500 px-3 py-1 font-medium text-white">
+              Assign
             </button>
+            {canEdit && (
+              <button disabled={picked.length < 2} onClick={() => setMode({ kind: "merge" })}
+                      className="rounded-full bg-white/15 px-3 py-1 font-medium disabled:opacity-40 dark:bg-zinc-900/10">
+                Merge into one
+              </button>
+            )}
             <button onClick={() => setSelected(new Set())} className="opacity-75 hover:opacity-100">Clear</button>
           </div>
         </div>
       )}
+
+      <AssignDialog
+        open={assigning !== null} people={people} onClose={() => setAssigning(null)}
+        {...assignProps(assigning, picked, people, byId)}
+        onAssign={(personId) => {
+          const target = assigning;
+          setAssigning(null);
+          if (!target) return;
+          if (target.kind === "section") act(() => assignSectionTo(target.section.id, personId));
+          else if (target.kind === "item") act(() => assignRowTo(target.row.id, personId));
+          else act(() => assignRowsTo(picked.map((r) => r.id), personId), () => setSelected(new Set()));
+        }}
+      />
     </main>
   );
 }
@@ -347,83 +377,107 @@ function defaultDue(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T17:00`;
 }
 
-function RowItem({ row, rfpId, sections, people, byId, canEdit, canAssign, actor, pending, active, selected, mode,
-                   onActivate, onToggle, setMode, act }: {
-  row: Requirement; rfpId: number; sections: Section[]; people: Person[]; byId: Map<number, Person>;
+const assignButton =
+  "rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
+
+/** Title, note and current owner for the Assign popup, depending on what is being assigned. */
+function assignProps(target: AssignTarget | null, picked: Requirement[], people: Person[], byId: Map<number, Person>) {
+  if (!target) return { title: "", current: null };
+  if (target.kind === "item") {
+    return {
+      title: `Assign ${target.row.reqRef}`,
+      note: target.row.text.length > 120 ? `${target.row.text.slice(0, 120)}…` : target.row.text,
+      current: target.row.assigneeId,
+      suggested: suggestedOwner(target.row.type, people),
+    };
+  }
+  if (target.kind === "section") {
+    const owner = target.section.assigneeId === null ? null : byId.get(target.section.assigneeId);
+    return {
+      title: `Assign section ${target.section.ref}`,
+      note: owner
+        ? `Items that were with ${owner.name} or unassigned move to the new owner; items you gave to someone else stay.`
+        : `All ${target.open} unanswered items in this section move to them.`,
+      current: target.section.assigneeId,
+    };
+  }
+  const open = picked.filter((r) => !r.response).length;
+  return {
+    title: `Assign ${picked.length} selected line ${picked.length === 1 ? "item" : "items"}`,
+    note: open < picked.length ? `${picked.length - open} already answered will stay as they are.` : undefined,
+    current: null,
+  };
+}
+
+function RowItem({ row, rfpId, sections, owner, canEdit, canAssign, actor, pending, active, selected, mode,
+                   onActivate, onToggle, onAssign, setMode, act }: {
+  row: Requirement; rfpId: number; sections: Section[]; owner: Person | null;
   canEdit: boolean; canAssign: boolean; actor: Person | null; pending: boolean; active: boolean; selected: boolean;
-  mode: Mode; onActivate: () => void; onToggle: () => void; setMode: (m: Mode) => void; act: Act;
+  mode: Mode; onActivate: () => void; onToggle: () => void; onAssign: () => void; setMode: (m: Mode) => void; act: Act;
 }) {
   const [reason, setReason] = useState("");
   const editing = mode?.kind === "edit" && mode.id === row.id;
   const deleting = mode?.kind === "delete" && mode.id === row.id;
-  const answering = mode?.kind === "answer" && mode.id === row.id;
-  const suggested = row.assigneeId === null ? suggestedOwner(row.type, people) : null;
+  const changing = mode?.kind === "answer" && mode.id === row.id;
 
   return (
-    <li id={`item-${row.id}`} className={`scroll-mt-4 border-l-2 px-3 py-2.5 ${active ? "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/30" : "border-transparent"}`}>
+    <li id={`item-${row.id}`} className={`scroll-mt-4 border-l-2 px-3 py-3 ${active ? "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/30" : "border-transparent"}`}>
       <div className="flex items-start gap-3">
-        {canEdit && (
+        {canAssign && (
           <input type="checkbox" className="mt-1" aria-label={`Select ${row.reqRef}`} checked={selected} onChange={onToggle} />
         )}
-        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-          <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-2">
-          <PriorityTag value={row.priority} disabled={pending}
-                       onChange={canEdit ? (p) => act(() => editRow(row.id, { priority: p })) : undefined} />
-          <button onClick={onActivate} className="min-w-0 flex-1 text-left">
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <PriorityTag value={row.priority} disabled={pending}
+                         onChange={canEdit ? (p) => act(() => editRow(row.id, { priority: p })) : undefined} />
+            <button onClick={onActivate} className="flex min-w-0 flex-wrap items-center gap-1.5 text-left text-xs">
               <span className="font-mono text-zinc-500">{row.reqRef}</span>
               <span className="font-medium text-zinc-700 dark:text-zinc-300">{row.section ?? "No reference"}</span>
               <Badge>{row.type}</Badge>
               {row.createdBy === "reviewer" && <Badge tone="indigo">Added by a person</Badge>}
               {row.edited && <Badge tone="indigo">Edited</Badge>}
               {row.forwardCount > 2 && <Badge tone="amber">Forwarded {row.forwardCount} times</Badge>}
-              {row.page && <span className="hidden text-zinc-400 lg:inline">p. {row.page}</span>}
-            </div>
-            <p className="mt-1 text-sm leading-snug">{row.text}</p>
-          </button>
-          </div>
-            {row.response && <AnswerLine response={row.response} />}
-            {!row.response && <SuggestionBox suggestion={row.suggestion} />}
-          </div>
-          <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
-            {!row.response && (
-              <div className="flex flex-col items-start gap-0.5 sm:items-end">
-                <OwnerSelect label={`Owner of ${row.reqRef}`} people={people} value={row.assigneeId}
-                             disabled={!canAssign || pending} emptyLabel="No owner yet"
-                             onChange={(id) => act(() => assignRowTo(row.id, id))} />
-                {suggested && <span className="text-xs text-zinc-400">Usually {suggested.name} ({suggested.role})</span>}
-                {row.assigneeId !== null && !byId.has(row.assigneeId) && (
-                  <span className="text-xs text-amber-600">Owner is no longer on the team</span>
-                )}
-              </div>
-            )}
-            <div className="flex gap-2 text-xs">
-              {row.page && (
-                <a href={`/rfps/${rfpId}/source#page=${row.page}`} target="_blank" rel="noreferrer"
-                   className="text-zinc-500 hover:underline lg:hidden">p. {row.page}</a>
-              )}
-              {actor && (
-                <button onClick={() => setMode({ kind: "answer", id: row.id })}
-                        className="text-indigo-600 hover:underline dark:text-indigo-400">
-                  {row.response ? "Change answer" : "Answer myself"}
+              {row.page && <span className="text-zinc-400">p. {row.page}</span>}
+            </button>
+            <div className="ml-auto flex items-center gap-2">
+              {!row.response && <OwnerChip person={owner} />}
+              {!row.response && canAssign && (
+                <button onClick={onAssign} disabled={pending} className={assignButton}>
+                  {owner ? "Reassign" : "Assign"}
                 </button>
               )}
               {canEdit && !row.response && (
-                <>
-                  <button onClick={() => setMode({ kind: "edit", id: row.id })} className="text-zinc-500 hover:text-zinc-900 hover:underline dark:hover:text-zinc-100">Edit</button>
-                  <button onClick={() => setMode({ kind: "delete", id: row.id })} className="text-zinc-500 hover:text-red-700 hover:underline dark:hover:text-red-400">Delete</button>
-                </>
+                <RowMenu onEdit={() => setMode({ kind: "edit", id: row.id })}
+                         onDelete={() => setMode({ kind: "delete", id: row.id })} />
               )}
             </div>
           </div>
+
+          <button onClick={onActivate} className="block w-full text-left text-sm leading-snug">{row.text}</button>
+
+          {!row.response && <SuggestionBox suggestion={row.suggestion} />}
+
+          {row.response && !changing ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <AnswerLine response={row.response} />
+              {actor && (
+                <button onClick={() => setMode({ kind: "answer", id: row.id })}
+                        className="mt-1.5 text-xs text-indigo-600 hover:underline dark:text-indigo-400">Change</button>
+              )}
+            </div>
+          ) : actor && (
+            <QuickAnswer pending={pending} initialNote={row.response?.note ?? ""}
+                         onCancel={changing ? () => setMode(null) : undefined}
+                         onAnswer={(answer, note) => act(() => answerRowMyself(row.id, answer, note))} />
+          )}
+
+          {row.page && (
+            <a href={`/rfps/${rfpId}/source#page=${row.page}`} target="_blank" rel="noreferrer"
+               className="inline-block text-xs text-zinc-500 hover:underline lg:hidden">Open page {row.page} of the RFP</a>
+          )}
         </div>
       </div>
 
-      {answering && actor && (
-        <AnswerForm initial={row.response} pending={pending} onCancel={() => setMode(null)}
-                    onSubmit={(answer, note) => act(() => answerRowMyself(row.id, answer, note))} />
-      )}
       {editing && (
         <div className="mt-3">
           <RowForm sections={sections}
@@ -447,17 +501,23 @@ function RowItem({ row, rfpId, sections, people, byId, canEdit, canAssign, actor
   );
 }
 
-function OwnerSelect({ label, people, value, disabled, emptyLabel, onChange }: {
-  label: string; people: Person[]; value: number | null; disabled: boolean; emptyLabel: string;
-  onChange: (id: number | null) => void;
-}) {
+/** Edit and Delete, tucked behind a small menu so the row stays clean. */
+function RowMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+  const choose = (e: React.MouseEvent, action: () => void) => {
+    e.currentTarget.closest("details")?.removeAttribute("open");
+    action();
+  };
   return (
-    <select aria-label={label} value={value ?? ""} disabled={disabled}
-            onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-            className={`${fieldClass} max-w-[14rem] py-1 text-xs ${value === null ? "text-zinc-500" : ""}`}>
-      <option value="">{emptyLabel}</option>
-      {people.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.role}</option>)}
-    </select>
+    <details className="relative">
+      <summary aria-label="More actions"
+               className="flex size-7 cursor-pointer list-none items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 [&::-webkit-details-marker]:hidden">
+        ⋯
+      </summary>
+      <div className="absolute right-0 z-20 mt-1 w-36 rounded-md border border-zinc-200 bg-white py-1 text-sm shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+        <button onClick={(e) => choose(e, onEdit)} className="block w-full px-3 py-1.5 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800">Edit</button>
+        <button onClick={(e) => choose(e, onDelete)} className="block w-full px-3 py-1.5 text-left text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40">Delete</button>
+      </div>
+    </details>
   );
 }
 

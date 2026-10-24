@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { forwardMyItems, saveMyAnswer, submitMyAnswers, type ActionResult } from "@/app/actions";
-import { AnswerForm, AnswerLine, SuggestionBox } from "@/components/answers";
+import { AnswerLine, QuickAnswer, SuggestionBox } from "@/components/answers";
 import { Badge, SourcePanel } from "@/components/manager-view";
 import { PriorityTag } from "@/components/priority-tag";
 import { fieldClass } from "@/components/row-form";
@@ -166,11 +166,13 @@ function RfpCard({ rfp, token, people, activeId, onActivate }: {
                   ) : (
                     <>
                       <SuggestionBox suggestion={row.suggestion} />
-                      <AnswerForm initial={row.response} pending={pending}
-                                  onCancel={row.response ? () => setEditing(null) : undefined}
-                                  onSubmit={(answer, note) => act(
-                                    () => saveMyAnswer(token, row.id, answer, note, row.suggestion?.id ?? null),
-                                    () => setEditing(null))} />
+                      <div className="mt-2">
+                        <QuickAnswer pending={pending} initialNote={row.response?.note ?? ""}
+                                     onCancel={row.response ? () => setEditing(null) : undefined}
+                                     onAnswer={(answer, note) => act(
+                                       () => saveMyAnswer(token, row.id, answer, note, row.suggestion?.id ?? null),
+                                       () => setEditing(null))} />
+                      </div>
                     </>
                   )}
                   {row.page && (

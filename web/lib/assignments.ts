@@ -59,6 +59,20 @@ export async function assignItem(
   return 1;
 }
 
+/** Give several items to one person (or nobody). Answered items are skipped. Returns how many moved. */
+export async function assignItems(
+  db: Db, requirementIds: number[], personId: number | null, actor: string,
+): Promise<number> {
+  const ids = [...new Set(requirementIds)];
+  if (ids.length === 0) throw new CheckpointError("Pick the line items to assign.");
+  let moved = 0;
+  for (const id of ids) {
+    if ((await getRequirement(db, id)).response) continue;
+    moved += await assignItem(db, id, personId, actor);
+  }
+  return moved;
+}
+
 /** Give every unassigned, unanswered item to the usual owner for its type. Returns how many moved. */
 export async function assignSuggested(db: Db, rfpId: number, actor: string): Promise<number> {
   const name = checkReviewer(actor);
