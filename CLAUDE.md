@@ -56,7 +56,7 @@ Drafting runs **before** the bid decision because machine drafting is cheap; the
 | Database | Postgres with pgvector (Supabase or local Docker) |
 | Library source | CSV snapshot in `data/library.csv` (exported from Google Sheets). A live Sheets sync is a later upgrade, not week 1 |
 | Parsing | pdfplumber, python-docx, openpyxl |
-| Review app | Streamlit (default; Next.js is an open decision) |
+| Review app | Next.js (App Router, TypeScript, Tailwind) in `web/`, talking to the same Postgres through `pg` |
 | Export | python-docx, openpyxl |
 | Tests | pytest |
 
@@ -87,9 +87,9 @@ rfp-system/
     retrieve/
     draft/
     scoring/                  # go/no-go
-    review/                   # streamlit app
     export/
     db/                       # schema + migrations
+  web/                        # review app (Next.js): Checkpoints A-D
   eval/                       # harness, answer key loader, run log
   data/
     library.csv               # 97 approved answers (snapshot of the Library tab)
@@ -280,12 +280,12 @@ Commit after each step with a clear message.
 
 - Prompts live in `prompts/` as versioned files; never inline long prompts in code. Record `prompt_version` on every model call.
 - Every LLM call goes through one wrapper (`src/llm.py`) that handles OpenRouter auth, retries, JSON validation and logging.
-- Run `pytest` and the eval harness before every commit that touches extraction, drafting or scoring.
+- Run `pytest` and the eval harness before every commit that touches extraction, drafting or scoring. Run `npm test` in `web/` before every commit that touches the review app.
 - Keep functions small and typed. Plain language in UI copy.
 
 ## Open decisions
 
-- [ ] Streamlit or Next.js for the review app
+- [x] Streamlit or Next.js for the review app: Next.js (decided 2026-10-23)
 - [ ] HubSpot free CRM or a Sheets tab for pipeline tracking
 - [ ] Planted-error rate per RFP and which kinds (wrong number, flipped yes/no, stale source)
 - [ ] Speed-flag threshold in seconds for high-risk rows
