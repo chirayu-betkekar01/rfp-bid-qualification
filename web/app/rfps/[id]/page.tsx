@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import { ManagerView } from "@/components/manager-view";
 import { pool } from "@/lib/db";
+import { listNotifications, listProgress } from "@/lib/experts";
 import { listPeople } from "@/lib/people";
 import { getRfp, listChanges, listRequirements, listSections } from "@/lib/requirements";
 import { getActor } from "@/lib/reviewer";
@@ -19,10 +20,11 @@ async function Workspace({ params }: Pick<PageProps<"/rfps/[id]">, "params">) {
   const rfpId = Number((await params).id);
   if (!Number.isInteger(rfpId)) notFound();
   const db = pool();
-  const [rfp, sections, rows, changes, people, actor] = await Promise.all([
+  const [rfp, sections, rows, changes, people, actor, progress, notifications] = await Promise.all([
     getRfp(db, rfpId), listSections(db, rfpId), listRequirements(db, rfpId), listChanges(db, rfpId),
-    listPeople(db), getActor(),
+    listPeople(db), getActor(), listProgress(db, rfpId), listNotifications(db, rfpId),
   ]);
   if (!rfp) notFound();
-  return <ManagerView rfp={rfp} sections={sections} rows={rows} changes={changes} people={people} actor={actor} />;
+  return <ManagerView rfp={rfp} sections={sections} rows={rows} changes={changes} people={people} actor={actor}
+                      progress={progress} notifications={notifications} />;
 }

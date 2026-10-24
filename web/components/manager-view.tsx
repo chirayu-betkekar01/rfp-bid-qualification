@@ -4,11 +4,12 @@ import { useMemo, useState, useTransition } from "react";
 
 import {
   addRow, answerRowMyself, assignAllSuggested, assignRowTo, assignSectionTo, deleteRow, editRow, mergeRows,
-  type ActionResult,
+  nudgePerson, sendOutToExperts, type ActionResult,
 } from "@/app/actions";
 import { AnswerForm, AnswerLine, SuggestionBox } from "@/components/answers";
 import { ChangeLog } from "@/components/change-log";
 import { PRIORITY_LABELS, RowForm, fieldClass, inputClass } from "@/components/row-form";
+import type { NotificationRow, PersonProgress } from "@/lib/experts";
 import { suggestedOwner, type Person } from "@/lib/people";
 import {
   PRIORITIES, type Change, type Priority, type Requirement, type RequirementInput, type Rfp,
@@ -24,8 +25,9 @@ type Group = { section: Section | null; rows: Requirement[] };
 type Act = (change: () => Promise<ActionResult>, done?: () => void) => void;
 
 /** The proposal manager's screen: fix the shredded list, then route every line item or answer it. */
-export function ManagerView({ rfp, sections, rows, changes, people, actor }: {
+export function ManagerView({ rfp, sections, rows, changes, people, actor, progress, notifications }: {
   rfp: Rfp; sections: Section[]; rows: Requirement[]; changes: Change[]; people: Person[]; actor: Person | null;
+  progress: PersonProgress[]; notifications: NotificationRow[];
 }) {
   const locked = rfp.sentOutAt !== null;
   const canEdit = !locked && actor !== null;
@@ -88,7 +90,13 @@ export function ManagerView({ rfp, sections, rows, changes, people, actor }: {
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
         <section className="min-w-0 space-y-3">
           <Guide rfp={rfp} actor={actor} counts={counts} suggestable={suggestable} pending={pending}
-                 onSuggest={() => act(() => assignAllSuggested(rfp.id))} />
+                 recipients={new Set(rows.filter((r) => !r.response && r.assigneeId !== null).map((r) => r.assigneeId)).size}
+                 onSuggest={() => act(() => assignAllSuggested(rfp.id))}
+                 onSendOut={(due) => act(() => sendOutToExperts(rfp.id, due))} />
+          {rfp.sentOutAt && (
+            <Progress progress={progress} notifications={notifications} canNudge={actor !== null} pending={pending}
+                      onNudge={(personId) => act(() => nudgePerson(rfp.id, personId))} />
+          )}
           {error && (
             <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
               {error}
@@ -272,9 +280,11 @@ function Header({ rfp, rows, counts }: { rfp: Rfp; rows: Requirement[]; counts: 
   );
 }
 
-function Guide({ rfp, actor, counts, suggestable, pending, onSuggest }: {
-  rfp: Rfp; actor: Person | null; counts: Counts; suggestable: number; pending: boolean; onSuggest: () => void;
+function Guide({ rfp, actor, counts, suggestable, recipients, pending, onSuggest, onSendOut }: {
+  rfp: Rfp; actor: Person | null; counts: Counts; suggestable: number; recipients: number; pending: boolean;
+  onSuggest: () => void; onSendOut: (dueAt: string) => void;
 }) {
+  const [due, setDue] = useState(defaultDue);
   const box = "rounded-lg border px-4 py-3 text-sm";
   if (!actor) {
     return (
@@ -287,8 +297,9 @@ function Guide({ rfp, actor, counts, suggestable, pending, onSuggest }: {
     return (
       <div className={`${box} border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200`}>
         Sent to experts by <strong>{rfp.sentOutBy}</strong> on{" "}
-        {rfp.sentOutAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}. The list is locked; you can
-        still reassign items or answer them yourself.
+        {rfp.sentOutAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+        {rfp.responsesDueAt && <>, answers due {rfp.responsesDueAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</>}.
+        The list is locked; you can still reassign items or answer them yourself.
       </div>
     );
   }
@@ -308,12 +319,97 @@ function Guide({ rfp, actor, counts, suggestable, pending, onSuggest }: {
             Give {suggestable} unassigned {suggestable === 1 ? "item" : "items"} to their usual owners
           </button>
         )}
-        <span className={ready ? "text-emerald-700 dark:text-emerald-400" : "text-zinc-500"}>
-          {ready
-            ? "Every line item has an owner or an answer. Sending out to experts comes next."
-            : `${counts.unassigned} ${counts.unassigned === 1 ? "item still needs" : "items still need"} an owner.`}
-        </span>
+        {!ready && (
+          <span className="text-zinc-500">
+            {counts.unassigned} {counts.unassigned === 1 ? "item still needs" : "items still need"} an owner.
+          </span>
+        )}
       </div>
+      {ready && (
+        <form className="flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-2 dark:border-zinc-800"
+              onSubmit={(e) => { e.preventDefault(); onSendOut(new Date(due).toISOString()); }}>
+          <strong className="text-zinc-900 dark:text-zinc-100">3. Send out:</strong>
+          <span className="text-zinc-600 dark:text-zinc-300">answers due</span>
+          <input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} required
+                 aria-label="Answers due" className={fieldClass} />
+          <button disabled={pending || recipients === 0}
+                  className="rounded-md bg-indigo-600 px-3 py-1.5 font-medium text-white disabled:opacity-50">
+            Send to {recipients} {recipients === 1 ? "person" : "people"} on Slack
+          </button>
+          <span className="text-xs text-zinc-500">Locks the list. Each person gets one message with their own link.</span>
+        </form>
+      )}
+    </div>
+  );
+}
+
+/** Five days from now at 5 pm, in the local time a datetime-local input expects. */
+function defaultDue(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 5);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T17:00`;
+}
+
+const KIND_LABELS: Record<string, string> = {
+  send_out: "Sent out", forwarded: "Forwarded", reassigned: "Reassigned", nudge: "Nudge", all_done: "All answered",
+};
+
+/** After sending out: who has answered, nudges, and every Slack message. */
+function Progress({ progress, notifications, canNudge, pending, onNudge }: {
+  progress: PersonProgress[]; notifications: NotificationRow[]; canNudge: boolean; pending: boolean;
+  onNudge: (personId: number) => void;
+}) {
+  const notSent = notifications.filter((n) => !n.ok);
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white text-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <h2 className="border-b border-zinc-200 px-4 py-2 font-semibold dark:border-zinc-800">Who has answered</h2>
+      <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {progress.map(({ person, items, answered, submitted, lastNudgedAt }) => {
+          const done = submitted === items;
+          return (
+            <li key={person.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2">
+              <span className="min-w-40 font-medium">{person.name}<span className="font-normal text-zinc-500"> · {person.role}</span></span>
+              <span className={done ? "text-emerald-700 dark:text-emerald-400" : "text-zinc-600 dark:text-zinc-300"}>
+                {done
+                  ? `Submitted all ${items}`
+                  : `${submitted} of ${items} submitted${answered > submitted ? `, ${answered - submitted} answered but not submitted` : ""}`}
+              </span>
+              <span className="ml-auto flex items-center gap-3 text-xs">
+                {lastNudgedAt && (
+                  <span className="text-zinc-400">
+                    Nudged {lastNudgedAt.toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" })}
+                  </span>
+                )}
+                {!done && canNudge && (
+                  <button disabled={pending} onClick={() => onNudge(person.id)}
+                          className="text-indigo-600 hover:underline disabled:opacity-50 dark:text-indigo-400">Nudge</button>
+                )}
+                <a href={`/r/${person.linkToken}`} target="_blank" rel="noreferrer" className="text-zinc-500 hover:underline">
+                  Open their link
+                </a>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <details className="border-t border-zinc-200 dark:border-zinc-800">
+        <summary className="cursor-pointer px-4 py-2 text-zinc-600 dark:text-zinc-300">
+          Slack messages ({notifications.length})
+          {notSent.length > 0 && <span className="text-amber-700 dark:text-amber-400"> · {notSent.length} not sent</span>}
+        </summary>
+        <ul className="space-y-1 px-4 pb-3 text-xs">
+          {notifications.map((n) => (
+            <li key={n.id} className="flex flex-wrap gap-x-2">
+              <span className="text-zinc-400">{n.sentAt.toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" })}</span>
+              <span>{KIND_LABELS[n.kind] ?? n.kind}{n.personName && ` · ${n.personName}`}</span>
+              <span className={n.ok ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"}>
+                {n.ok ? "sent" : `not sent: ${n.error}`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </details>
     </div>
   );
 }
@@ -345,6 +441,7 @@ function RowItem({ row, rfpId, sections, people, byId, canEdit, canAssign, actor
               <Badge>{row.type}</Badge>
               {row.createdBy === "reviewer" && <Badge tone="indigo">Added by a person</Badge>}
               {row.edited && <Badge tone="indigo">Edited</Badge>}
+              {row.forwardCount > 2 && <Badge tone="amber">Forwarded {row.forwardCount} times</Badge>}
               {row.page && <span className="hidden text-zinc-400 lg:inline">p. {row.page}</span>}
             </div>
             <p className="mt-1 text-sm leading-snug">{row.text}</p>
@@ -476,10 +573,11 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-export function Badge({ children, tone = "zinc" }: { children: React.ReactNode; tone?: "zinc" | "indigo" }) {
+export function Badge({ children, tone = "zinc" }: { children: React.ReactNode; tone?: "zinc" | "indigo" | "amber" }) {
   const tones = {
     zinc: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
     indigo: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300",
+    amber: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300",
   };
   return <span className={`rounded px-1.5 py-0.5 ${tones[tone]}`}>{children}</span>;
 }

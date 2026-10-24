@@ -35,6 +35,7 @@ export type Rfp = {
   extractedAt: Date | null;
   sentOutBy: string | null;
   sentOutAt: Date | null;
+  responsesDueAt: Date | null;
   rowCount: number;
 };
 
@@ -70,8 +71,11 @@ export type Suggestion = {
   id: number;
 };
 
+export type Forwarded = { fromName: string; note: string | null };
+
 export type Requirement = {
   id: number;
+  rfpId: number;
   reqRef: string;
   section: string | null;        // the RFP's own reference, e.g. "IV.A.1"
   sectionId: number | null;
@@ -84,6 +88,8 @@ export type Requirement = {
   assigneeId: number | null;
   response: LineAnswer | null;
   suggestion: Suggestion | null;  // the AI's latest suggestion; never pre-selected
+  forwardCount: number;
+  lastForward: Forwarded | null;   // who passed it on most recently, and their note
 };
 
 export type RequirementInput = {
@@ -108,11 +114,11 @@ export type Change = {
 
 const RFP_COLUMNS = `
   r.id, r.buyer, r.title, r.source_file, r.due_date, r.extract_model, r.extract_prompt_version,
-  r.extracted_at, r.sent_out_by, r.sent_out_at,
+  r.extracted_at, r.sent_out_by, r.sent_out_at, r.responses_due_at,
   (select count(*) from requirement q where q.rfp_id = r.id) as row_count`;
 
 const REQUIREMENT_COLUMNS = `
-  q.id, q.req_ref, q.rfp_section, q.section_id, q.text, q.type, q.mandatory, q.scored, q.page, q.created_by,
+  q.id, q.rfp_id, q.req_ref, q.rfp_section, q.section_id, q.text, q.type, q.mandatory, q.scored, q.page, q.created_by,
   q.assignee_id,
   exists (select 1 from requirement_change c
           where c.requirement_id = q.id and c.action in ('edit', 'merge')) as edited,
@@ -120,14 +126,18 @@ const REQUIREMENT_COLUMNS = `
   g.id as suggestion_id, g.answer as suggestion_answer, g.reason as suggestion_reason, g.cited_ids, g.flags,
   (select coalesce(json_agg(json_build_object('id', l.id, 'question', l.question, 'answer', l.answer,
                                               'status', l.status) order by l.id), '[]'::json)
-   from library_answer l where l.id = any(g.cited_ids)) as sources`;
+   from library_answer l where l.id = any(g.cited_ids)) as sources,
+  (select count(*) from forward f where f.requirement_id = q.id) as forward_count,
+  lf.from_name as forward_from, lf.note as forward_note`;
 
 const REQUIREMENT_FROM = `
   requirement q
   left join line_response a on a.requirement_id = q.id
   left join person p on p.id = a.person_id
   left join lateral (select * from ai_suggestion g where g.requirement_id = q.id
-                     order by g.created_at desc, g.id desc limit 1) g on true`;
+                     order by g.created_at desc, g.id desc limit 1) g on true
+  left join lateral (select fp.name as from_name, f.note from forward f join person fp on fp.id = f.from_person_id
+                     where f.requirement_id = q.id order by f.forwarded_at desc, f.id desc limit 1) lf on true`;
 
 // Sections in document order; within one, extraction order (page, then id) keeps added rows by their page.
 const DOCUMENT_ORDER = "s.position nulls last, q.page nulls last, q.id";
@@ -160,6 +170,19 @@ export async function listRequirements(db: Db, rfpId: number): Promise<Requireme
      left join rfp_section s on s.id = q.section_id
      where q.rfp_id = $1 order by ${DOCUMENT_ORDER}`,
     [rfpId],
+  );
+  return rows.map(toRequirement);
+}
+
+/** Items waiting with one person on RFPs that have been sent out, in document order. */
+export async function listAssignedRequirements(db: Db, personId: number): Promise<Requirement[]> {
+  const { rows } = await db.query<RequirementRow>(
+    `select ${REQUIREMENT_COLUMNS} from ${REQUIREMENT_FROM}
+     join rfp r on r.id = q.rfp_id and r.sent_out_at is not null
+     left join rfp_section s on s.id = q.section_id
+     where q.assignee_id = $1 and (a.id is null or a.person_id = $1)
+     order by r.sent_out_at desc, q.rfp_id, ${DOCUMENT_ORDER}`,
+    [personId],
   );
   return rows.map(toRequirement);
 }
@@ -376,17 +399,18 @@ function sameInput(a: RequirementInput, b: RequirementInput): boolean {
 type RfpRow = {
   id: string; buyer: string; title: string; source_file: string; due_date: Date | null;
   extract_model: string | null; extract_prompt_version: string | null; extracted_at: Date | null;
-  sent_out_by: string | null; sent_out_at: Date | null; row_count: string;
+  sent_out_by: string | null; sent_out_at: Date | null; responses_due_at: Date | null; row_count: string;
 };
 
 type RequirementRow = {
-  id: string; req_ref: string; rfp_section: string | null; section_id: string | null; text: string; type: string;
+  id: string; rfp_id: string; req_ref: string; rfp_section: string | null; section_id: string | null; text: string; type: string;
   mandatory: boolean; scored: boolean; page: number | null; created_by: "ai" | "reviewer";
   assignee_id: string | null; edited: boolean;
   answer: Answer | null; note: string | null; answer_person_id: string | null; answer_person_name: string | null;
   answer_status: "draft" | "submitted" | null;
   suggestion_id: string | null; suggestion_answer: Answer | null; suggestion_reason: string | null;
   cited_ids: string[] | null; flags: string[] | null; sources: LibrarySource[];
+  forward_count: string; forward_from: string | null; forward_note: string | null;
 };
 
 function toRfp(r: RfpRow): Rfp {
@@ -401,6 +425,7 @@ function toRfp(r: RfpRow): Rfp {
     extractedAt: r.extracted_at,
     sentOutBy: r.sent_out_by,
     sentOutAt: r.sent_out_at,
+    responsesDueAt: r.responses_due_at,
     rowCount: Number(r.row_count),
   };
 }
@@ -408,6 +433,7 @@ function toRfp(r: RfpRow): Rfp {
 function toRequirement(r: RequirementRow): Requirement {
   return {
     id: Number(r.id),
+    rfpId: Number(r.rfp_id),
     reqRef: r.req_ref,
     section: r.rfp_section,
     sectionId: r.section_id === null ? null : Number(r.section_id),
@@ -433,5 +459,7 @@ function toRequirement(r: RequirementRow): Requirement {
       sources: r.sources,
       flags: r.flags ?? [],
     },
+    forwardCount: Number(r.forward_count),
+    lastForward: r.forward_from === null ? null : { fromName: r.forward_from, note: r.forward_note },
   };
 }

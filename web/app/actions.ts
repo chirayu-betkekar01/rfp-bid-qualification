@@ -5,12 +5,16 @@ import { refresh } from "next/cache";
 
 import { answerMyself, assignItem, assignSection, assignSuggested } from "@/lib/assignments";
 import { inTransaction, pool } from "@/lib/db";
-import { getPerson, type Person } from "@/lib/people";
+import {
+  forwardItems, nudge, reassignedMessage, saveDraft, sendOut, submitAnswers,
+} from "@/lib/experts";
+import { findPersonByToken, getPerson, type Person } from "@/lib/people";
 import { ACTOR_COOKIE, getActor } from "@/lib/reviewer";
 import {
-  CheckpointError, addRequirement, deleteRequirement, editRequirement, mergeRequirements,
+  CheckpointError, addRequirement, deleteRequirement, editRequirement, mergeRequirements, rfpOf,
   type Answer, type RequirementInput,
 } from "@/lib/requirements";
+import { deliver, type Message } from "@/lib/slack";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -38,11 +42,80 @@ export async function deleteRow(requirementId: number, reason?: string) {
 }
 
 export async function assignSectionTo(sectionId: number, personId: number | null) {
-  return run((actor) => inTransaction((db) => assignSection(db, sectionId, personId, actor.name)));
+  return run(async (actor) => {
+    const { rfpId, messages } = await inTransaction(async (db) => {
+      const moved = await assignSection(db, sectionId, personId, actor.name);
+      const { rows } = await db.query(`select rfp_id from rfp_section where id = $1`, [sectionId]);
+      const rfpId = Number(rows[0].rfp_id);
+      return { rfpId, messages: await reassignedMessage(db, rfpId, personId, moved, actor) };
+    });
+    await send(rfpId, messages);
+  });
 }
 
 export async function assignRowTo(requirementId: number, personId: number | null) {
-  return run((actor) => inTransaction((db) => assignItem(db, requirementId, personId, actor.name)));
+  return run(async (actor) => {
+    const { rfpId, messages } = await inTransaction(async (db) => {
+      const moved = await assignItem(db, requirementId, personId, actor.name);
+      const rfpId = await rfpOf(db, requirementId);
+      return { rfpId, messages: await reassignedMessage(db, rfpId, personId, moved, actor) };
+    });
+    await send(rfpId, messages);
+  });
+}
+
+export async function sendOutToExperts(rfpId: number, dueAt: string) {
+  return run(async (actor) => {
+    const messages = await inTransaction((db) => sendOut(db, rfpId, actor, new Date(dueAt)));
+    await send(rfpId, messages);
+  });
+}
+
+export async function nudgePerson(rfpId: number, personId: number) {
+  return run(async (actor) => {
+    const messages = await inTransaction((db) => nudge(db, rfpId, personId, actor));
+    await send(rfpId, messages);
+  });
+}
+
+// Experts act through their personal link: the token in the link says who they are.
+
+export async function saveMyAnswer(token: string, requirementId: number, answer: Answer, note: string,
+                                   suggestionId: number | null) {
+  return runAs(token, (person) =>
+    inTransaction((db) => saveDraft(db, requirementId, person, answer, note, suggestionId)));
+}
+
+export async function forwardMyItems(token: string, requirementIds: number[], toPersonId: number, note: string) {
+  return runAs(token, async (person) => {
+    const rfpId = await rfpOf(pool(), requirementIds[0]);
+    const messages = await inTransaction((db) => forwardItems(db, requirementIds, person, toPersonId, note));
+    await send(rfpId, messages);
+  });
+}
+
+export async function submitMyAnswers(token: string, rfpId: number) {
+  return runAs(token, async (person) => {
+    const { messages } = await inTransaction((db) => submitAnswers(db, rfpId, person));
+    await send(rfpId, messages);
+  });
+}
+
+async function send(rfpId: number, messages: Message[]): Promise<void> {
+  if (messages.length) await deliver(pool(), rfpId, messages);
+}
+
+async function runAs(token: string, change: (person: Person) => Promise<unknown>): Promise<ActionResult> {
+  try {
+    const person = await findPersonByToken(pool(), token);
+    if (!person) throw new CheckpointError("This link is not valid.");
+    await change(person);
+  } catch (error) {
+    if (error instanceof CheckpointError) return { ok: false, error: error.message };
+    throw error;
+  }
+  refresh();
+  return { ok: true };
 }
 
 export async function assignAllSuggested(rfpId: number) {

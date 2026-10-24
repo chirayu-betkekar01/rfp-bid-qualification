@@ -24,6 +24,25 @@ Fetch them with `python -m eval.fetch_test_rfps`.
 - Every change goes to `requirement_change` with the person's name. Once the RFP is sent out to
   experts the list is locked; reassigning still works.
 
+- **Send out**: once every item has an owner or an answer, pick an answer deadline and send. The
+  list locks, and each person gets one Slack message with their personal link. After that, the
+  manager sees who has answered, can **Nudge** anyone with items left, and can open each person's
+  link (handy for the demo). Every Slack attempt is logged, sent or not.
+
+## Expert screen (`/r/<token>`)
+
+- Only that person's items on sent-out RFPs, grouped by RFP, with the RFP page beside them.
+- Each item shows the AI suggestion, its reason and the library answers it cites. Nothing is
+  pre-selected: the expert picks Yes / No / Maybe (No and Maybe need a note).
+- **Forward** passes items to someone else with a note; the new person gets a Slack message and
+  sees who forwarded it and why. Items forwarded more than twice are flagged for the manager.
+- **Submit** once every item is answered. The last submission tells the manager on Slack.
+
+## Slack
+
+Set `SLACK_WEBHOOK_URL` in the repo-root `.env` to an incoming webhook for a demo channel. Without
+it, messages are still written to the `notification` table and shown as "not sent".
+
 There is no login yet: pick who you are under **Acting as**. The demo team is fictional and comes
 from `supabase/seed.sql`.
 

@@ -40,22 +40,23 @@ export async function assignSection(
   return moved.rowCount ?? 0;
 }
 
-/** Give one item to one person (or nobody), overriding the section owner. */
+/** Give one item to one person (or nobody), overriding the section owner. Returns 1 if it moved. */
 export async function assignItem(
   db: Db, requirementId: number, personId: number | null, actor: string,
-): Promise<void> {
+): Promise<number> {
   const name = checkReviewer(actor);
   const item = await getRequirement(db, requirementId);
   if (item.response) {
     throw new CheckpointError(`${item.reqRef} is already answered by ${item.response.personName}.`);
   }
   const next = personId === null ? null : await getPerson(db, personId);
-  if (item.assigneeId === (next?.id ?? null)) return;
+  if (item.assigneeId === (next?.id ?? null)) return 0;
   const previous = item.assigneeId === null ? null : await getPerson(db, item.assigneeId);
   await db.query(`update requirement set assignee_id = $2 where id = $1`, [requirementId, next?.id ?? null]);
   await logChange(db, await rfpOf(db, requirementId), requirementId, "assign",
                   { req_ref: item.reqRef, person: previous?.name ?? null },
                   { req_ref: item.reqRef, person: next?.name ?? null }, name);
+  return 1;
 }
 
 /** Give every unassigned, unanswered item to the usual owner for its type. Returns how many moved. */

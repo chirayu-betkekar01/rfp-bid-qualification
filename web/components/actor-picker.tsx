@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { setActor } from "@/app/actions";
@@ -9,6 +10,8 @@ import type { Person } from "@/lib/people";
 export function ActorPicker({ people, actorId }: { people: Person[]; actorId: number | null }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // On a personal link the link itself says who you are.
+  if (usePathname().startsWith("/r/")) return null;
 
   return (
     <label className="flex flex-wrap items-center gap-2 text-sm">
