@@ -12,7 +12,7 @@ import {
   addContributor, findPersonByToken, getPerson, setContributorActive, updateContributor, type ContributorInput,
   type Person,
 } from "@/lib/people";
-import { decide, setFact, type FactName, type FactValue } from "@/lib/report";
+import { decide, setFact, setGapCheck, type FactName, type FactValue } from "@/lib/report";
 import { ACTOR_COOKIE, getActor } from "@/lib/reviewer";
 import {
   CheckpointError, addRequirement, deleteRequirement, editRequirement, mergeRequirements, rfpOf,
@@ -110,6 +110,10 @@ export async function setTeamMemberActive(personId: number, active: boolean) {
 
 export async function setRfpFact(rfpId: number, name: FactName, value: FactValue, reason: string) {
   return run((actor) => inTransaction((db) => setFact(db, rfpId, name, value, actor.name, reason, loadVendor())));
+}
+
+export async function checkHardFail(rfpId: number, requirementId: number, isHardFail: boolean, reason: string) {
+  return run((actor) => inTransaction((db) => setGapCheck(db, rfpId, requirementId, isHardFail, actor.name, reason)));
 }
 
 export async function decideGoNoGo(rfpId: number, decision: "bid" | "no_bid", reason: string) {

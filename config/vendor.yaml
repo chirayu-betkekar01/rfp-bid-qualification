@@ -58,6 +58,7 @@ scorecard:
     penalty_per_needs_decision: 1
     penalty_per_no: 5        # expert answers
     penalty_per_maybe: 1
+    max_maybe_penalty: 10    # almost every item is mandatory, so Maybes alone never take all 20 points
     floor: 0
 
   relationship:              # reviewer input

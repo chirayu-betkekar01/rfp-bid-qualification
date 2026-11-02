@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import { decideGoNoGo, setRfpFact, type ActionResult } from "@/app/actions";
+import { checkHardFail, decideGoNoGo, setRfpFact, type ActionResult } from "@/app/actions";
 import { inputClass } from "@/components/row-form";
 import type { FactEntry, FactName, FactValue } from "@/lib/report";
 import type { Decision } from "@/lib/requirements";
@@ -167,6 +167,61 @@ function FactForm({ rfpId, field, current, options, onDone }: {
         {error && <span role="alert" className="text-xs text-red-700 dark:text-red-400">{error}</span>}
       </div>
     </form>
+  );
+}
+
+export type PossibleHardFail = { itemId: number; text: string; itemText: string; answeredBy: string | null; note: string | null };
+
+/**
+ * Keyword matches on a mandatory No can come from boilerplate, so each one waits for the manager:
+ * confirm it (no-bid whatever the points) or dismiss it with a reason.
+ */
+export function HardFailChecks({ rfpId, possible, canEdit }: { rfpId: number; possible: PossibleHardFail[]; canEdit: boolean }) {
+  return (
+    <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+      <p className="font-semibold">Possible hard {possible.length === 1 ? "fail" : "fails"}: check {possible.length === 1 ? "it" : "each one"}</p>
+      <p className="text-xs">A mandatory item answered No mentions one of Tallyhouse&apos;s known gaps. If the item really asks for it,
+        it&apos;s a hard fail. If the words are only boilerplate, dismiss it and say why.</p>
+      <ul className="mt-2 space-y-3">
+        {possible.map((p) => <HardFailCheck key={p.itemId} rfpId={rfpId} fail={p} canEdit={canEdit} />)}
+      </ul>
+    </div>
+  );
+}
+
+function HardFailCheck({ rfpId, fail, canEdit }: { rfpId: number; fail: PossibleHardFail; canEdit: boolean }) {
+  const [dismissing, setDismissing] = useState(false);
+  const [reason, setReason] = useState("");
+  const { error, pending, act } = useAction();
+  return (
+    <li className="rounded-md bg-white/70 px-3 py-2 dark:bg-zinc-900/60">
+      <p className="font-medium">{fail.text}</p>
+      <p className="mt-0.5 text-zinc-700 dark:text-zinc-300">“{fail.itemText.length > 220 ? `${fail.itemText.slice(0, 220)}…` : fail.itemText}”</p>
+      {fail.answeredBy && <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">{fail.answeredBy}: {fail.note}</p>}
+      {canEdit && (dismissing ? (
+        <form className="mt-2 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); act(() => checkHardFail(rfpId, fail.itemId, false, reason)); }}>
+          <input autoFocus required value={reason} onChange={(e) => setReason(e.target.value)}
+                 placeholder="Why not? e.g. CJIS only applies if we handle criminal justice data, which we won't"
+                 className={`${inputClass} min-w-64 flex-1`} />
+          <button disabled={pending} className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900">
+            Dismiss
+          </button>
+          <button type="button" onClick={() => setDismissing(false)} className="px-1 text-xs text-zinc-500 hover:underline">Back</button>
+        </form>
+      ) : (
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button disabled={pending} onClick={() => act(() => checkHardFail(rfpId, fail.itemId, true, ""))}
+                  className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+            Yes, it&apos;s a hard fail
+          </button>
+          <button disabled={pending} onClick={() => setDismissing(true)}
+                  className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900">
+            Not a hard fail
+          </button>
+        </div>
+      ))}
+      {error && <p role="alert" className="mt-1 text-xs text-red-700 dark:text-red-400">{error}</p>}
+    </li>
   );
 }
 

@@ -69,11 +69,13 @@ Each RFP has a navigation column on the left (tabs across the top on a phone):
   pre-proposal meeting only, no contact).
 - **Score**: code in `lib/scoring.ts` applies the rules in `config/vendor.yaml` to the submitted
   answers and the facts: product fit (Yes 1, Maybe 0.5, No 0 over functional and integration items),
-  mandatory (−5 per No, −1 per Maybe), relationship, deal size vs. list price for the buyer's users,
+  mandatory (−5 per No, −1 per Maybe with Maybes capped at −10), relationship, deal size vs. list price for the buyer's users,
   competitive position and effort vs. deadline. Each factor shows its inputs and any flag.
-- **Hard fails** recommend no-bid whatever the points: an RFP outside Tallyhouse's categories, or a
-  mandatory item answered No that asks for a known hard-fail gap (FedRAMP, on-premises, HIPAA BAA,
-  EU data residency, CJIS). A hard fail also shows on the Overview, before anything is sent out.
+- **Hard fails** recommend no-bid whatever the points. An RFP outside Tallyhouse's categories is one
+  straight away, and shows on the Overview before anything is sent out. A mandatory item answered No
+  that mentions a known gap (FedRAMP, on-premises, HIPAA BAA, EU data residency, CJIS) is only a
+  *possible* hard fail, because the words often come from boilerplate: the manager confirms it or
+  dismisses it with a reason (`gap_check`), and the decision waits until each one is checked.
 - **Report**: every No and Maybe with the expert's note, who answered what, and how often people
   agreed with the AI suggestion.
 - **Decision**: bid or no-bid with a written reason, once every item has a submitted answer and the

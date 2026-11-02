@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { PriorityTag } from "@/components/priority-tag";
-import { DecisionBanner, DecisionForm, FactsPanel, RelationshipQuestion } from "@/components/report";
+import { DecisionBanner, DecisionForm, FactsPanel, HardFailChecks, RelationshipQuestion, type PossibleHardFail } from "@/components/report";
 import { pool } from "@/lib/db";
 import { ANSWER_TONES } from "@/lib/flags";
 import { getReport } from "@/lib/report";
@@ -36,6 +36,11 @@ async function Report({ params }: Pick<PageProps<"/rfps/[id]/report">, "params">
   const nos = answered.filter((r) => r.response!.answer === "No");
   const maybes = answered.filter((r) => r.response!.answer === "Maybe");
   const byPriority = (a: Requirement, b: Requirement) => Number(b.priority === "mandatory") - Number(a.priority === "mandatory");
+  const rowById = new Map(rows.map((r) => [r.id, r]));
+  const possible: PossibleHardFail[] = s.possibleHardFails.map((f) => {
+    const row = rowById.get(f.itemId!)!;
+    return { itemId: row.id, text: f.text, itemText: row.text, answeredBy: row.response?.personName ?? null, note: row.response?.note ?? null };
+  });
 
   return (
     <main className="w-full flex-1 space-y-4 px-4 py-6">
@@ -57,7 +62,9 @@ async function Report({ params }: Pick<PageProps<"/rfps/[id]/report">, "params">
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <section className={card}>
           <h2 className={heading}>Score</h2>
-          <ScoreSummary s={s} />
+          <ScoreSummary s={s}>
+            {possible.length > 0 && <HardFailChecks rfpId={rfp.id} possible={possible} canEdit={canEdit} />}
+          </ScoreSummary>
           <FactorTable factors={s.factors} />
         </section>
 
@@ -92,16 +99,17 @@ async function Report({ params }: Pick<PageProps<"/rfps/[id]/report">, "params">
         <section className={card}>
           <h2 className={heading}>Your decision</h2>
           <DecisionForm rfpId={rfp.id} recommendation={s.recommendation} canDecide={s.canDecide} canEdit={actor !== null}
-                        blocked={s.canDecide ? null : s.complete
-                          ? "Answer the relationship question above before deciding."
-                          : `Waiting for ${s.items - s.answered} of ${s.items} answers. You can decide once every line item is submitted.`} />
+                        blocked={s.canDecide ? null : !s.complete
+                          ? `Waiting for ${s.items - s.answered} of ${s.items} answers. You can decide once every line item is submitted.`
+                          : s.missing.includes("relationship") ? "Answer the relationship question above before deciding."
+                          : "Confirm or dismiss each possible hard fail in the score above before deciding."} />
         </section>
       )}
     </main>
   );
 }
 
-function ScoreSummary({ s }: { s: Score }) {
+function ScoreSummary({ s, children }: { s: Score; children?: React.ReactNode }) {
   const bid = s.recommendation === "bid";
   return (
     <div className="space-y-3 border-b border-zinc-200 px-4 py-4 dark:border-zinc-800">
@@ -131,7 +139,18 @@ function ScoreSummary({ s }: { s: Score }) {
       {s.hardFails.length > 0 && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
           <p className="font-semibold">Hard fail: no-bid whatever the points</p>
-          <ul className="mt-1 list-disc pl-5">{s.hardFails.map((f, i) => <li key={i}>{f.text}</li>)}</ul>
+          <ul className="mt-1 list-disc pl-5">
+            {s.hardFails.map((f, i) => <li key={i}>{f.text}{f.check && <span className="text-red-700 dark:text-red-300"> Confirmed by {f.check.setBy}.</span>}</li>)}
+          </ul>
+        </div>
+      )}
+      {children}
+      {s.dismissedHardFails.length > 0 && (
+        <div className="text-xs text-zinc-500">
+          <p className="font-medium">Not hard fails (dismissed)</p>
+          <ul className="mt-0.5 list-disc pl-5">
+            {s.dismissedHardFails.map((f, i) => <li key={i}>{f.text} {f.check!.setBy}: “{f.check!.reason}”</li>)}
+          </ul>
         </div>
       )}
     </div>

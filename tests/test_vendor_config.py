@@ -67,4 +67,5 @@ def test_expert_answer_rules() -> None:
     s = CONFIG["scorecard"]
     assert s["product_fit"]["answer_values"] == {"Yes": 1.0, "Maybe": 0.5, "No": 0.0}
     assert (s["mandatory"]["penalty_per_no"], s["mandatory"]["penalty_per_maybe"]) == (5, 1)
+    assert s["mandatory"]["max_maybe_penalty"] == 10
     assert s["competitive_position"]["incumbents"]["other"] == 5

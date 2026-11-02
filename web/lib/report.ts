@@ -9,7 +9,7 @@
 import {
   CheckpointError, checkReviewer, getRfp, listRequirements, type Db, type Requirement, type Rfp,
 } from "./requirements";
-import { score, type Facts, type Score, type ScoreItem, type Vendor } from "./scoring";
+import { score, type Facts, type GapCheck, type Score, type ScoreItem, type Vendor } from "./scoring";
 
 export const FACT_NAMES = [
   "relationship", "product_sought", "category", "buyer_kind", "budget_per_year_usd", "incumbent", "staff_users", "issued_on",
@@ -79,8 +79,36 @@ export async function getReport(db: Db, rfpId: number, vendor: Vendor): Promise<
   if (!rfp) return null;
   const rows = await listRequirements(db, rfpId);
   const facts = await listFacts(db, rfpId);
-  const result = score({ items: scoreItems(rows), facts: factsOf(facts), dueDate: rfp.dueDate, receivedAt: rfp.receivedAt }, vendor);
+  const gapChecks = await listGapChecks(db, rfpId);
+  const result = score({
+    items: scoreItems(rows), facts: factsOf(facts), dueDate: rfp.dueDate, receivedAt: rfp.receivedAt, gapChecks,
+  }, vendor);
   return { rfp, rows, facts, score: result };
+}
+
+/** The latest call on each possible hard fail, by line item id. */
+export async function listGapChecks(db: Db, rfpId: number): Promise<Record<number, GapCheck>> {
+  const { rows } = await db.query(
+    `select distinct on (requirement_id) requirement_id, is_hard_fail, set_by, reason
+     from gap_check where rfp_id = $1 order by requirement_id, created_at desc, id desc`,
+    [rfpId],
+  );
+  return Object.fromEntries(rows.map((r) => [Number(r.requirement_id), { isHardFail: r.is_hard_fail, setBy: r.set_by, reason: r.reason }]));
+}
+
+/** Confirm a possible hard fail, or dismiss it with a reason. */
+export async function setGapCheck(
+  db: Db, rfpId: number, requirementId: number, isHardFail: boolean, person: string, reason: string,
+): Promise<void> {
+  const setBy = checkReviewer(person);
+  if (!isHardFail && !reason.trim()) throw new CheckpointError("Say why this is not a hard fail.");
+  await lockUndecided(db, rfpId);
+  const { rows } = await db.query(`select 1 from requirement where id = $1 and rfp_id = $2`, [requirementId, rfpId]);
+  if (!rows[0]) throw new CheckpointError("This line item is not part of this RFP.");
+  await db.query(
+    `insert into gap_check (rfp_id, requirement_id, is_hard_fail, set_by, reason) values ($1, $2, $3, $4, $5)`,
+    [rfpId, requirementId, isHardFail, setBy, reason.trim() || null],
+  );
 }
 
 /** Check a value a person gives for a fact. Returns it in the stored form. */
@@ -148,11 +176,12 @@ export async function decide(
   if (!report) throw new CheckpointError("This RFP does not exist.");
   const s = report.score;
   if (!s.canDecide) {
-    throw new CheckpointError(s.complete
-      ? "Answer the relationship question first."
-      : `Wait for every answer: ${s.items - s.answered} of ${s.items} line items are not submitted yet.`);
+    throw new CheckpointError(!s.complete
+      ? `Wait for every answer: ${s.items - s.answered} of ${s.items} line items are not submitted yet.`
+      : s.missing.includes("relationship") ? "Answer the relationship question first."
+      : "Confirm or dismiss each possible hard fail first.");
   }
-  const breakdown = { ...s, facts: factsOf(report.facts), scoredAt: new Date().toISOString() };
+  const breakdown = { ...s, facts: factsOf(report.facts), scoredAt: new Date().toISOString() };   // includes the hard-fail calls
   await db.query(
     `update rfp set go_no_go_score = $2, score_breakdown = $3, recommendation = $4, decision = $5,
             decided_by = $6, decision_reason = $7, decided_at = now()

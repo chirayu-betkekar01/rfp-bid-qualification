@@ -22,7 +22,7 @@ export type Vendor = {
   scorecard: {
     bid_threshold: number;
     product_fit: { points: number; row_types: string[]; answer_values: Record<Answer, number>; no_answers_points: number };
-    mandatory: { points: number; penalty_per_no: number; penalty_per_maybe: number; floor: number };
+    mandatory: { points: number; penalty_per_no: number; penalty_per_maybe: number; max_maybe_penalty: number; floor: number };
     relationship: { points: number; options: Record<string, number> };
     deal_size: {
       points: number; at_or_above_list: number; within_pct_below: number; within_pct_below_points: number;
@@ -59,7 +59,16 @@ export type Facts = {
   relationship: string | null;     // answered by the proposal manager
 };
 
-export type ScoreInput = { items: ScoreItem[]; facts: Facts; dueDate: Date | null; receivedAt: Date };
+/** The proposal manager's call on a possible hard fail. */
+export type GapCheck = { isHardFail: boolean; setBy: string; reason: string | null };
+
+export type ScoreInput = {
+  items: ScoreItem[];
+  facts: Facts;
+  dueDate: Date | null;
+  receivedAt: Date;
+  gapChecks?: Record<number, GapCheck>;   // by line item id
+};
 
 export type FactorKey = "product_fit" | "mandatory" | "relationship" | "deal_size" | "competitive_position" | "effort_vs_deadline";
 
@@ -72,13 +81,15 @@ export type Factor = {
   flags: string[];                 // something the manager should check
 };
 
-export type HardFail = { kind: "category" | "gap"; text: string; itemId?: number };
+export type HardFail = { kind: "category" | "gap"; text: string; itemId?: number; check?: GapCheck };
 
 export type Score = {
   total: number;
   threshold: number;
   recommendation: "bid" | "no_bid";
-  hardFails: HardFail[];
+  hardFails: HardFail[];           // settle the recommendation: out of category, or a gap the manager confirmed
+  possibleHardFails: HardFail[];   // a mandatory No that mentions a known gap, waiting for the manager
+  dismissedHardFails: HardFail[];  // the manager said not a hard fail, with a reason
   factors: Factor[];
   items: number;
   answered: number;
@@ -139,15 +150,23 @@ export function score(input: ScoreInput, vendor: Vendor): Score {
     effort(input, card.effort_vs_deadline),
   ];
   const total = round1(factors.reduce((sum, f) => sum + f.points, 0));
-  const hardFails = findHardFails(input, vendor);
+  const found = findHardFails(input, vendor);
+  const hardFails = found.filter((f) => f.kind === "category" || f.check?.isHardFail === true);
+  const possibleHardFails = found.filter((f) => f.kind === "gap" && f.check === undefined);
+  const dismissedHardFails = found.filter((f) => f.kind === "gap" && f.check?.isHardFail === false);
   const answered = input.items.filter((i) => i.answer !== null).length;
   const complete = input.items.length > 0 && answered === input.items.length;
-  const missing = input.facts.relationship === null ? ["relationship"] : [];
+  const missing = [
+    ...(input.facts.relationship === null ? ["relationship"] : []),
+    ...(possibleHardFails.length > 0 ? ["hard_fail_checks"] : []),
+  ];
   return {
     total,
     threshold: card.bid_threshold,
     recommendation: hardFails.length === 0 && total >= card.bid_threshold ? "bid" : "no_bid",
     hardFails,
+    possibleHardFails,
+    dismissedHardFails,
     factors,
     items: input.items.length,
     answered,
@@ -182,11 +201,13 @@ function mandatory(items: ScoreItem[], rule: Vendor["scorecard"]["mandatory"]): 
   const required = items.filter((i) => i.priority === "mandatory");
   const nos = required.filter((i) => i.answer === "No").length;
   const maybes = required.filter((i) => i.answer === "Maybe").length;
-  const points = Math.max(rule.floor, rule.points - rule.penalty_per_no * nos - rule.penalty_per_maybe * maybes);
+  // Nearly every item in a public RFP is mandatory, so Maybes are capped: only Nos can take all the points.
+  const maybePenalty = Math.min(rule.max_maybe_penalty, rule.penalty_per_maybe * maybes);
+  const points = Math.max(rule.floor, rule.points - rule.penalty_per_no * nos - maybePenalty);
   return {
     key: "mandatory", label: FACTOR_LABELS.mandatory, max: rule.points, points,
     basis: `${plural(required.length, "mandatory item")}: ${plural(nos, "No", "Nos")} (−${rule.penalty_per_no} each), `
-      + `${plural(maybes, "Maybe", "Maybes")} (−${rule.penalty_per_maybe} each)`,
+      + `${plural(maybes, "Maybe", "Maybes")} (−${rule.penalty_per_maybe} each, at most −${rule.max_maybe_penalty})`,
     flags: nos > 0 ? [`${plural(nos, "mandatory item")} answered No`] : [],
   };
 }
@@ -257,7 +278,11 @@ function effort(input: ScoreInput, rule: Vendor["scorecard"]["effort_vs_deadline
   return { ...base, points: rule.otherwise_points, basis, flags: days < rule.partial.min_days ? ["Very little time to respond"] : [] };
 }
 
-/** Pass 1: an RFP outside the vendor's categories, or a mandatory item answered No that needs a known hard-fail gap. */
+/**
+ * Pass 1: an RFP outside the vendor's categories, or a mandatory item answered No that mentions a
+ * known hard-fail gap. The second is found by keywords, which also match boilerplate ("comply with
+ * all applicable laws, including CJIS"), so it only counts once the proposal manager confirms it.
+ */
 function findHardFails(input: ScoreInput, vendor: Vendor): HardFail[] {
   const fails: HardFail[] = [];
   const { category, productSought } = input.facts;
@@ -269,8 +294,8 @@ function findHardFails(input: ScoreInput, vendor: Vendor): HardFail[] {
     if (item.priority !== "mandatory" || item.answer !== "No") continue;
     const gaps = gapsIn(item.text, vendor).map((g) => GAP_NAMES[g] ?? g.replaceAll("_", " "));
     if (gaps.length > 0) {
-      fails.push({ kind: "gap", itemId: item.id,
-                   text: `${item.reqRef} is mandatory, was answered No, and asks for ${gaps.join(" and ")}, a known gap.` });
+      fails.push({ kind: "gap", itemId: item.id, check: input.gapChecks?.[item.id],
+                   text: `${item.reqRef} is mandatory, was answered No, and mentions ${gaps.join(" and ")}, ${gaps.length === 1 ? "a known gap" : "known gaps"}.` });
     }
   }
   return fails;

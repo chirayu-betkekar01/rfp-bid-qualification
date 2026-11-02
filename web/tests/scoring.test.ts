@@ -68,9 +68,9 @@ describe("the test documents", () => {
     expect(items).toHaveLength(94);
     const s = score(input(items), vendor);
     expect(Object.fromEntries(s.factors.map((f) => [f.key, f.points]))).toEqual({
-      product_fit: 25.9, mandatory: 0, relationship: 0, deal_size: 0, competitive_position: 10, effort_vs_deadline: 10,
+      product_fit: 25.9, mandatory: 5, relationship: 0, deal_size: 0, competitive_position: 10, effort_vs_deadline: 10,
     });
-    expect(s.total).toBe(45.9);
+    expect(s.total).toBe(50.9);                                     // 1 No (−5), 27 Maybes (capped at −10)
     expect(s.recommendation).toBe("no_bid");
     expect(s.hardFails).toEqual([]);
     expect(factor(s, "deal_size").flags).toEqual(["Budget is 67% below list price"]);
@@ -99,9 +99,11 @@ describe("factor rules", () => {
     expect([f.points, f.flags.length]).toEqual([15, 1]);
   });
 
-  it("mandatory loses 5 per No and 1 per Maybe, never below 0", () => {
+  it("mandatory loses 5 per No and 1 per Maybe (at most 10 for Maybes), never below 0", () => {
     const m = (answers: Answer[]) => factor(score(input(answers.map((a) => item(a, { priority: "mandatory" }))), vendor), "mandatory").points;
     expect(m(["Yes", "No", "Maybe", "Maybe"])).toBe(13);
+    expect(m(Array<Answer>(30).fill("Maybe"))).toBe(10);
+    expect(m(["No", ...Array<Answer>(30).fill("Maybe")])).toBe(5);
     expect(m(["No", "No", "No", "No", "No"])).toBe(0);
     expect(factor(score(input([item("No", { priority: "scored" })]), vendor), "mandatory").points).toBe(20);
   });
@@ -148,15 +150,29 @@ describe("factor rules", () => {
 });
 
 describe("hard fails and the recommendation", () => {
-  it("a mandatory No on a known hard-fail gap is a hard fail; a Maybe or an optional No is not", () => {
-    const fedramp = "The vendor must hold a FedRAMP Moderate authorization.";
+  it("a mandatory No on a known gap is a possible hard fail; a Maybe or an optional No is not", () => {
+    const fedramp = item("No", { priority: "mandatory", text: "The vendor must hold a FedRAMP Moderate authorization." });
     const s = score(input([
-      item("No", { priority: "mandatory", text: fedramp }),
+      fedramp,
       item("Maybe", { priority: "mandatory", text: "Sign a HIPAA business associate agreement." }),
       item("No", { priority: "optional", text: "CJIS compliance is preferred." }),
     ]), vendor);
-    expect(s.hardFails).toHaveLength(1);
-    expect(s.hardFails[0].text).toMatch(/is mandatory, was answered No, and asks for FedRAMP, a known gap/);
+    expect([s.hardFails.length, s.possibleHardFails.length]).toEqual([0, 1]);
+    expect(s.possibleHardFails[0]).toMatchObject({ itemId: fedramp.id });
+    expect(s.possibleHardFails[0].text).toMatch(/is mandatory, was answered No, and mentions FedRAMP, a known gap/);
+  });
+
+  it("a possible hard fail blocks the decision until the manager confirms or dismisses it", () => {
+    const cjis = item("No", { priority: "mandatory", text: "Comply with all applicable laws, including CJIS." });
+    const items = [cjis, item("Yes")];
+    const pending = score(input(items), vendor);
+    expect([pending.missing, pending.canDecide]).toEqual([["hard_fail_checks"], false]);
+
+    const yes = score({ ...input(items), gapChecks: { [cjis.id]: { isHardFail: true, setBy: "Morgan Lee", reason: null } } }, vendor);
+    expect([yes.hardFails.length, yes.recommendation, yes.canDecide]).toEqual([1, "no_bid", true]);
+
+    const no = score({ ...input(items), gapChecks: { [cjis.id]: { isHardFail: false, setBy: "Morgan Lee", reason: "Boilerplate" } } }, vendor);
+    expect([no.hardFails.length, no.dismissedHardFails.length, no.missing, no.canDecide]).toEqual([0, 1, [], true]);
   });
 
   it("gap phrases match whole words only", () => {

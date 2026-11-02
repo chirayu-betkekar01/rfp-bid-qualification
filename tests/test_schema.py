@@ -2,7 +2,7 @@
 import psycopg
 import pytest
 
-TABLES = {"rfp_fact", "library_answer", "rfp", "requirement", "draft", "review_decision", "library_proposal",
+TABLES = {"gap_check", "rfp_fact", "library_answer", "rfp", "requirement", "draft", "review_decision", "library_proposal",
           "requirement_change", "person", "rfp_section", "ai_suggestion", "line_response", "forward",
           "notification"}
 

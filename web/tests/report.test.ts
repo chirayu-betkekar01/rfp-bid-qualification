@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { decide, getReport, listFacts, setFact } from "../lib/report";
+import { decide, getReport, listFacts, setFact, setGapCheck } from "../lib/report";
 import { loadVendor } from "../lib/vendor";
 import { db, item, person, rfp, section, url, useRolledBackDb } from "./helpers";
 
@@ -105,6 +105,33 @@ describe.skipIf(!url)("go / no-go report", () => {
       await db.query(`insert into line_response (requirement_id, person_id, answer, note) values ($1, $2, 'No', 'Not yet sure')`,
                      [a, expert.id]);
       expect((await getReport(db, rfpId, vendor))!.score.answered).toBe(0);
+    });
+
+    it("a possible hard fail waits for the manager; dismissing it needs a reason", async () => {
+      const { rfpId, expert, a, b } = await answeredRfp();
+      await db.query(`update requirement set text = 'Comply with all applicable laws, including CJIS.' where id = $1`, [a]);
+      await submitted(a, expert.id, "No", "We are not CJIS certified");
+      await submitted(b, expert.id, "Yes");
+      await setFact(db, rfpId, "relationship", "none", "Morgan Lee", "", vendor);
+      expect((await getReport(db, rfpId, vendor))!.score.possibleHardFails).toHaveLength(1);
+      await expect(decide(db, rfpId, "no_bid", "Weak fit", "Morgan Lee", vendor)).rejects.toThrow(/possible hard fail/);
+
+      await expect(setGapCheck(db, rfpId, a, false, "Morgan Lee", " ")).rejects.toThrow(/why/);
+      await setGapCheck(db, rfpId, a, false, "Morgan Lee", "Boilerplate: we won't handle criminal justice data");
+      let s = (await getReport(db, rfpId, vendor))!.score;
+      expect([s.possibleHardFails.length, s.dismissedHardFails[0].check?.reason, s.canDecide])
+        .toEqual([0, "Boilerplate: we won't handle criminal justice data", true]);
+
+      await setGapCheck(db, rfpId, a, true, "Morgan Lee", "");     // changed their mind: the latest call counts
+      s = (await getReport(db, rfpId, vendor))!.score;
+      expect([s.hardFails.length, s.recommendation]).toEqual([1, "no_bid"]);
+    });
+
+    it("a hard-fail call must be about an item on this RFP", async () => {
+      const { rfpId } = await answeredRfp();
+      const otherRfp = await rfp();
+      const elsewhere = await item(otherRfp, await section(otherRfp, "IV"), "R-001", 4, "Hold a FedRAMP authorization.");
+      await expect(setGapCheck(db, rfpId, elsewhere, true, "Morgan Lee", "")).rejects.toThrow(/not part of this RFP/);
     });
   });
 });
