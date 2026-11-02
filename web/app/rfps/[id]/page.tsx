@@ -7,7 +7,10 @@ import { Progress } from "@/components/progress";
 import { pool } from "@/lib/db";
 import { listNotifications, listProgress } from "@/lib/experts";
 import { ANSWER_TONES, flagLabel, isGap } from "@/lib/flags";
+import { factsOf, listFacts, scoreItems } from "@/lib/report";
 import { getActor } from "@/lib/reviewer";
+import { score } from "@/lib/scoring";
+import { loadVendor } from "@/lib/vendor";
 import {
   ANSWERS, PRIORITIES, getRfp, listRequirements, listSections, type Requirement, type Rfp,
 } from "@/lib/requirements";
@@ -28,11 +31,14 @@ async function Overview({ params }: Pick<PageProps<"/rfps/[id]">, "params">) {
   const rfpId = Number((await params).id);
   if (!Number.isInteger(rfpId)) notFound();
   const db = pool();
-  const [rfp, sections, rows, progress, notifications, actor] = await Promise.all([
+  const [rfp, sections, rows, progress, notifications, actor, facts] = await Promise.all([
     getRfp(db, rfpId), listSections(db, rfpId), listRequirements(db, rfpId), listProgress(db, rfpId),
-    listNotifications(db, rfpId), getActor(),
+    listNotifications(db, rfpId), getActor(), listFacts(db, rfpId),
   ]);
   if (!rfp) notFound();
+  // A hard fail (such as an RFP outside what Tallyhouse sells) is worth knowing before anything is sent out.
+  const { hardFails } = score({ items: scoreItems(rows), facts: factsOf(facts), dueDate: rfp.dueDate, receivedAt: rfp.receivedAt },
+                              loadVendor());
 
   const unassigned = rows.filter((r) => !r.response && r.assigneeId === null).length;
   const submitted = rows.filter((r) => r.response?.status === "submitted").length;
@@ -47,6 +53,17 @@ async function Overview({ params }: Pick<PageProps<"/rfps/[id]">, "params">) {
         <h1 className="mt-1 text-xl font-semibold tracking-tight">{rfp.title}</h1>
         <p className="mt-1 text-sm text-zinc-500">{rfp.buyer}</p>
       </div>
+
+      {hardFails.length > 0 && !rfp.decision && (
+        <section className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+          <p className="font-semibold">Recommend no-bid: hard fail</p>
+          <ul className="mt-1 list-disc pl-5">{hardFails.map((f, i) => <li key={i}>{f.text}</li>)}</ul>
+          <p className="mt-2">
+            You can record the decision now, without sending anything out.{" "}
+            <Link href={`/rfps/${rfp.id}/report`} className="font-medium underline">Go to go / no-go →</Link>
+          </p>
+        </section>
+      )}
 
       <Steps rfp={rfp} total={rows.length} unassigned={unassigned} submitted={submitted} />
 
@@ -152,16 +169,18 @@ async function Overview({ params }: Pick<PageProps<"/rfps/[id]">, "params">) {
 const STEPS = ["Shredded", "Owners set", "Sent to experts", "All answered", "Go / no-go"] as const;
 
 function Steps({ rfp, total, unassigned, submitted }: { rfp: Rfp; total: number; unassigned: number; submitted: number }) {
-  const done = [true, unassigned === 0 && total > 0, rfp.sentOutAt !== null, total > 0 && submitted === total, false];
+  const done = [true, unassigned === 0 && total > 0, rfp.sentOutAt !== null, total > 0 && submitted === total, rfp.decision !== null];
   const current = done.indexOf(false);
   const next = [
     "",
     `${unassigned} line ${unassigned === 1 ? "item needs" : "items need"} an owner.`,
     "Every item has an owner. Send the RFP out to the experts.",
     `Waiting for ${total - submitted} of ${total} answers.`,
-    "Every item is answered. Scoring and the go/no-go decision come next.",
-  ][current];
-  const href = current <= 2 ? `/rfps/${rfp.id}/items` : null;
+    "Every item is answered. Check the score and record the go / no-go decision.",
+  ][current] ?? `Decided: ${rfp.decision?.decision === "bid" ? "bid" : "no-bid"}, by ${rfp.decision?.decidedBy}.`;
+  const link = current === -1 || current >= 3
+    ? { href: `/rfps/${rfp.id}/report`, label: "Go to go / no-go →" }
+    : { href: `/rfps/${rfp.id}/items`, label: "Go to line items →" };
   return (
     <section className={`${card} px-4 py-3`}>
       <ol className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm">
@@ -179,7 +198,7 @@ function Steps({ rfp, total, unassigned, submitted }: { rfp: Rfp; total: number;
       </ol>
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
         <strong className="text-zinc-900 dark:text-zinc-100">Next:</strong> {next}{" "}
-        {href && <Link href={href} className="text-indigo-600 hover:underline dark:text-indigo-400">Go to line items →</Link>}
+        <Link href={link.href} className="text-indigo-600 hover:underline dark:text-indigo-400">{link.label}</Link>
       </p>
     </section>
   );

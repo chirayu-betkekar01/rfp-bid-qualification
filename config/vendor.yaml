@@ -40,7 +40,12 @@ scorecard:
   product_fit:
     points: 30
     row_types: [Functional, Integration]
-    status_values:
+    answer_values:           # expert answers (bid qualification)
+      "Yes": 1.0
+      Maybe: 0.5
+      "No": 0.0
+    no_answers_points: 15    # no product items answered: half the points, plus a flag
+    status_values:           # drafted statuses (drafting is parked)
       Fully compliant: 1.0
       Via integration: 0.75
       Partially compliant: 0.5
@@ -51,6 +56,8 @@ scorecard:
     points: 20
     penalty_per_not_compliant: 5
     penalty_per_needs_decision: 1
+    penalty_per_no: 5        # expert answers
+    penalty_per_maybe: 1
     floor: 0
 
   relationship:              # reviewer input
@@ -61,6 +68,9 @@ scorecard:
       none: 0
 
   deal_size:                 # budget vs list price
+    # Annual list price for the RFP's staff users. Public sector: platform fee plus
+    # per staff user. Commercial: Professional up to professional_max_users, else Enterprise.
+    # Unknown user count means an unknown list price, scored like an unknown budget.
     points: 15
     at_or_above_list: 15
     within_pct_below: 0.25
@@ -77,6 +87,7 @@ scorecard:
       zendesk: 6
       salesforce: 3
       microsoft_dynamics: 3
+      other: 5               # a named system not listed here
       unknown: 5
 
   effort_vs_deadline:
@@ -84,3 +95,4 @@ scorecard:
     full:    {min_days: 14, max_requirements: 149, points: 10}
     partial: {min_days: 7,  max_requirements: 300, points: 5}
     otherwise_points: 0
+    unknown_due_points: 5    # no due date known; also raises a flag

@@ -36,7 +36,18 @@ export type Rfp = {
   sentOutBy: string | null;
   sentOutAt: Date | null;
   responsesDueAt: Date | null;
+  receivedAt: Date;
   rowCount: number;
+  decision: Decision | null;     // go / no-go, recorded by a person
+};
+
+export type Decision = {
+  decision: "bid" | "no_bid";
+  recommendation: "bid" | "no_bid";
+  score: number;
+  decidedBy: string;
+  reason: string;
+  decidedAt: Date;
 };
 
 export type Section = {
@@ -114,7 +125,8 @@ export type Change = {
 
 const RFP_COLUMNS = `
   r.id, r.buyer, r.title, r.source_file, r.due_date, r.extract_model, r.extract_prompt_version,
-  r.extracted_at, r.sent_out_by, r.sent_out_at, r.responses_due_at,
+  r.extracted_at, r.sent_out_by, r.sent_out_at, r.responses_due_at, r.received_at,
+  r.decision, r.recommendation, r.go_no_go_score, r.decided_by, r.decision_reason, r.decided_at,
   (select count(*) from requirement q where q.rfp_id = r.id) as row_count`;
 
 const REQUIREMENT_COLUMNS = `
@@ -400,6 +412,8 @@ type RfpRow = {
   id: string; buyer: string; title: string; source_file: string; due_date: Date | null;
   extract_model: string | null; extract_prompt_version: string | null; extracted_at: Date | null;
   sent_out_by: string | null; sent_out_at: Date | null; responses_due_at: Date | null; row_count: string;
+  received_at: Date; decision: "bid" | "no_bid" | null; recommendation: "bid" | "no_bid" | null;
+  go_no_go_score: string | null; decided_by: string | null; decision_reason: string | null; decided_at: Date | null;
 };
 
 type RequirementRow = {
@@ -426,7 +440,12 @@ function toRfp(r: RfpRow): Rfp {
     sentOutBy: r.sent_out_by,
     sentOutAt: r.sent_out_at,
     responsesDueAt: r.responses_due_at,
+    receivedAt: r.received_at,
     rowCount: Number(r.row_count),
+    decision: r.decision === null ? null : {
+      decision: r.decision, recommendation: r.recommendation!, score: Number(r.go_no_go_score),
+      decidedBy: r.decided_by!, reason: r.decision_reason!, decidedAt: r.decided_at!,
+    },
   };
 }
 

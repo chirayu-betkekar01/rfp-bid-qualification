@@ -8,7 +8,7 @@ export const ANSWER_TONES: Record<Answer, string> = {
   Maybe: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300",
 };
 
-const GAP_NAMES: Record<string, string> = {
+export const GAP_NAMES: Record<string, string> = {
   fedramp: "FedRAMP",
   on_premises_or_private_cloud: "On-premises or private cloud",
   hipaa_baa: "HIPAA BAA",

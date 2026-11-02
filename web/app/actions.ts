@@ -12,12 +12,14 @@ import {
   addContributor, findPersonByToken, getPerson, setContributorActive, updateContributor, type ContributorInput,
   type Person,
 } from "@/lib/people";
+import { decide, setFact, type FactName, type FactValue } from "@/lib/report";
 import { ACTOR_COOKIE, getActor } from "@/lib/reviewer";
 import {
   CheckpointError, addRequirement, deleteRequirement, editRequirement, mergeRequirements, rfpOf,
   type Answer, type RequirementInput,
 } from "@/lib/requirements";
 import { deliver, type Message } from "@/lib/slack";
+import { loadVendor } from "@/lib/vendor";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -102,6 +104,16 @@ export async function updateTeamMember(personId: number, input: ContributorInput
 
 export async function setTeamMemberActive(personId: number, active: boolean) {
   return run(() => inTransaction((db) => setContributorActive(db, personId, active)));
+}
+
+// Go / no-go: the manager corrects what the AI read, answers the relationship question, and decides.
+
+export async function setRfpFact(rfpId: number, name: FactName, value: FactValue, reason: string) {
+  return run((actor) => inTransaction((db) => setFact(db, rfpId, name, value, actor.name, reason, loadVendor())));
+}
+
+export async function decideGoNoGo(rfpId: number, decision: "bid" | "no_bid", reason: string) {
+  return run((actor) => inTransaction((db) => decide(db, rfpId, decision, reason, actor.name, loadVendor())));
 }
 
 // Experts act through their personal link: the token in the link says who they are.

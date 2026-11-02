@@ -1,4 +1,4 @@
-"""Parse an RFP, extract its requirement list and save it for Checkpoint A.
+"""Parse an RFP, extract its line items and the facts the go/no-go score needs, and save them.
 
     python -m src.extract.run data/test_rfps/tulsa_rfp_26-901.pdf
 """
@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 
 from src.config import ROOT
 from src.extract.extract import extract, save
+from src.extract.facts import read_facts, save_facts
 from src.llm import CACHE_DIR, LLMClient
 from src.parse.pdf import parse_pdf
 
@@ -36,15 +37,19 @@ def main() -> None:
     with psycopg.connect(url) as conn:       # fail on a bad DATABASE_URL before paying for model calls
         doc = parse_pdf(args.pdf)
         print(f"Parsed {doc.source_file}: {doc.page_count} pages, {len(doc.blocks)} blocks")
-        result = extract(doc, LLMClient(cache_dir=CACHE_DIR), model, parallel=args.parallel)
+        client = LLMClient(cache_dir=CACHE_DIR)
+        result = extract(doc, client, model, parallel=args.parallel)
         saved = _keep_copy(doc.source_file, result)
         rfp_id = save(conn, doc, result)
+        facts = read_facts(doc, client, model)       # budget, users, incumbent, category for go/no-go
+        save_facts(conn, rfp_id, facts)
     print(f"Saved a local copy to {saved.relative_to(ROOT)}")
 
     types = Counter(r.type for r in result.rows)
     print(f"Extracted {len(result.rows)} rows with {result.model} ({result.prompt_version}), "
           f"cost ${result.cost_usd:.3f}")
     print(f"  rfp id {rfp_id}: {result.meta.buyer} | {result.meta.title} | due {result.meta.due_date}")
+    print("  facts: " + ", ".join(f"{f.name} {f.value!r}" for f in facts.facts) + f" (cost ${facts.cost_usd:.3f})")
     print(f"  mandatory {sum(r.mandatory == 'yes' for r in result.rows)}, "
           f"scored {sum(r.mandatory == 'scored' for r in result.rows)}, "
           f"optional {sum(r.mandatory == 'no' for r in result.rows)}")

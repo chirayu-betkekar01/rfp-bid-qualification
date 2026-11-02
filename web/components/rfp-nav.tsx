@@ -15,6 +15,7 @@ export function RfpNav({ rfpId, title, buyer, lineItems, contributors }: {
     { href: base, label: "Overview", hint: "Details, status and answers so far" },
     { href: `${base}/items`, label: "Line items", count: lineItems, hint: "Fix, route and answer" },
     { href: `${base}/contributors`, label: "Contributors", count: contributors, hint: "Who can be given items" },
+    { href: `${base}/report`, label: "Go / no-go", hint: "Score, report and decision" },
   ];
   const isActive = (href: string) => (href === base ? pathname === base : pathname.startsWith(href));
 

@@ -27,6 +27,7 @@ Each RFP has a navigation column on the left (tabs across the top on a phone):
   The team is shared by every RFP, so changes update every owner dropdown. Removing someone hides
   them from the dropdowns and keeps their past answers; it is refused while they still hold
   unanswered items.
+- **Go / no-go** (`/rfps/<id>/report`): the score, report and decision below.
 
 ## Line items (`/rfps/<id>/items`)
 
@@ -56,6 +57,28 @@ Each RFP has a navigation column on the left (tabs across the top on a phone):
 - **Forward** passes items to someone else with a note; the new person gets a Slack message and
   sees who forwarded it and why. Items forwarded more than twice are flagged for the manager.
 - **Submit** once every item is answered. The last submission tells the manager on Slack.
+
+## Go / no-go (`/rfps/<id>/report`)
+
+- **What the RFP says**: product and category, buyer kind, budget per year, staff users, current
+  system and issue date, read by the AI (`prompts/rfp_facts_v1.md`) with the quote and page each
+  rests on. The manager corrects any of them with a reason; the AI's reading is kept beside the
+  correction (`rfp_fact` keeps every version). Extraction reads them; for an existing RFP run
+  `python -m src.extract.facts --rfp <id>`.
+- **Relationship**: the one question only the team can answer (spoke with the buyer before the RFP,
+  pre-proposal meeting only, no contact).
+- **Score**: code in `lib/scoring.ts` applies the rules in `config/vendor.yaml` to the submitted
+  answers and the facts: product fit (Yes 1, Maybe 0.5, No 0 over functional and integration items),
+  mandatory (−5 per No, −1 per Maybe), relationship, deal size vs. list price for the buyer's users,
+  competitive position and effort vs. deadline. Each factor shows its inputs and any flag.
+- **Hard fails** recommend no-bid whatever the points: an RFP outside Tallyhouse's categories, or a
+  mandatory item answered No that asks for a known hard-fail gap (FedRAMP, on-premises, HIPAA BAA,
+  EU data residency, CJIS). A hard fail also shows on the Overview, before anything is sent out.
+- **Report**: every No and Maybe with the expert's note, who answered what, and how often people
+  agreed with the AI suggestion.
+- **Decision**: bid or no-bid with a written reason, once every item has a submitted answer and the
+  relationship question is answered (a hard fail can be decided straight away). It is recorded once,
+  with the score and inputs it was made on; going against the recommendation is allowed and shown.
 
 ## Slack
 

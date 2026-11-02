@@ -61,3 +61,10 @@ def test_scorecard_rule_values() -> None:
     }
     assert s["competitive_position"]["incumbents"]["salesforce"] == 3
     assert s["competitive_position"]["incumbents"]["unknown"] == 5
+
+
+def test_expert_answer_rules() -> None:
+    s = CONFIG["scorecard"]
+    assert s["product_fit"]["answer_values"] == {"Yes": 1.0, "Maybe": 0.5, "No": 0.0}
+    assert (s["mandatory"]["penalty_per_no"], s["mandatory"]["penalty_per_maybe"]) == (5, 1)
+    assert s["competitive_position"]["incumbents"]["other"] == 5
