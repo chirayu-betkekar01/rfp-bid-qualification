@@ -5,3 +5,5 @@ run_at,rfp,git_commit,models,prompt_versions,predicted_rows,matched,recall,preci
 2026-10-24T01:44:44+00:00,tulsa,6012bd4-dirty,,,118,91,0.9681,0.7712,0.0000,0.0000,0,0/12,0/22,not scored/no_bid,False,
 2026-10-24T01:46:04+00:00,tulsa,6012bd4-dirty,,,118,90,0.9574,0.7627,0.0000,0.0000,0,0/12,0/22,not scored/no_bid,False,
 2026-10-24T01:50:44+00:00,tulsa,6012bd4-dirty,,,112,83,0.8830,0.7411,0.0000,0.0000,0,0/12,0/22,not scored/no_bid,False,
+2026-11-02T01:58:25+00:00,tulsa,3d12971,,,118,90,0.9574,0.7627,0.0000,0.0000,0,0/12,0/22,not scored/no_bid,False,
+2026-11-02T01:58:26+00:00,utep,3d12971,,,263,0,,,,,0,,,not scored/no_bid,False,
