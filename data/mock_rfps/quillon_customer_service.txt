@@ -1,0 +1,129 @@
+% Quillon Outdoor Supply, Inc.
+% Request for Proposals QOS-CX-2027
+% Customer Service Platform
+
+Issued by Quillon Outdoor Supply, Inc., Customer Experience and IT
+
+Issue date: November 3, 2026
+
+Proposals due: December 1, 2026 at 5:00 PM Mountain Time
+
+Fictional RFP created to demonstrate the Tallyhouse RFP Review system. Quillon Outdoor Supply is not a real company, and any resemblance to a real organization is coincidental.
+
+===PAGE===
+
+I. INTRODUCTION
+
+A. About Quillon. Quillon Outdoor Supply sells camping, climbing and paddling gear online and through 34 stores in the United States. The company handles about 60,000 customer contacts a month about orders, returns, warranties and product questions.
+
+B. Current System. Quillon has used Zendesk Suite for customer service since 2019. The Zendesk contract ends on March 31, 2027, and Quillon is evaluating replacements that combine customer service with a single customer record across sales and marketing.
+
+C. Users. The platform will be used by approximately 120 customer service agents and team leads.
+
+D. Budget. Quillon has budgeted $140,000 per year for subscription fees, and up to $45,000 one time for implementation and data migration.
+
+E. Contract Term. Quillon prefers a two-year initial term.
+
+II. RFP SCHEDULE
+
+A. RFP issued: November 3, 2026.
+
+B. Questions due by email: November 13, 2026.
+
+C. Proposals due: December 1, 2026 at 5:00 PM Mountain Time.
+
+D. Vendor demonstrations: December 14 to 18, 2026.
+
+E. Target go-live: March 15, 2027.
+
+III. REQUIREMENTS
+
+A. Case Management
+
+1. Agents must manage customer contacts as cases with priorities, service level targets and automatic escalation.
+
+2. The platform must keep one customer record showing orders, cases, emails and marketing activity together.
+
+3. The platform must detect duplicate customer records and let admins merge them.
+
+4. Agents must be able to attach files, such as photos of damaged products, to cases.
+
+B. Channels
+
+1. Customers must be able to contact Quillon by email, web form and live chat, with every conversation captured as a case.
+
+2. The platform must support phone support. Quillon's agents take about 15,000 calls a month and need calls logged on cases automatically, either natively or through an integration with a contact center such as Twilio.
+
+C. Self-Service
+
+1. The platform must include a public help center and an internal knowledge base, with article versions and approvals.
+
+D. Artificial Intelligence
+
+1. The platform should summarize long cases and suggest knowledge articles and reply drafts to agents.
+
+2. Quillon's customer data must not be used to train any vendor or third-party AI model.
+
+E. Integrations
+
+1. The platform must integrate with Oracle NetSuite for orders, returns and refunds.
+
+2. The platform should integrate with Shopify Plus, which runs Quillon's online store.
+
+3. The vendor must provide a REST API and bulk data import and export.
+
+4. The platform must support single sign-on with Okta and enforce multi-factor authentication.
+
+F. Reporting
+
+1. Team leads must have real-time dashboards for queue sizes, response times and customer satisfaction scores, and a report builder for custom reports.
+
+IV. SECURITY, PRIVACY AND HOSTING
+
+A. The vendor must provide a current SOC 2 Type II report or ISO 27001 certificate.
+
+B. The vendor must comply with GDPR and CCPA and sign a data processing agreement.
+
+C. EU data residency for records of customers in the European Union is preferred but not required.
+
+D. The vendor must guarantee at least 99.9% monthly uptime.
+
+E. Data must be encrypted at rest and in transit.
+
+V. IMPLEMENTATION AND SUPPORT
+
+A. The platform must go live by March 15, 2027, before the Zendesk contract ends.
+
+B. The vendor must migrate about 2.4 million historical tickets and 900,000 customer records from Zendesk.
+
+C. The vendor must train team leads and agents, including recorded training for new hires.
+
+D. Support must be available 24 hours a day, 7 days a week for critical issues.
+
+E. Quillon expects a named customer success manager.
+
+VI. PRICING
+
+A. Vendors must quote per-agent pricing for 120 agents for each of two years, plus any platform fees.
+
+B. Vendors must quote implementation and migration as a fixed fee.
+
+C. Vendors should state any multi-year discount and any cap on renewal price increases.
+
+VII. PROPOSAL REQUIREMENTS
+
+A. Proposals must be emailed as a single PDF by the due date.
+
+B. Proposals must answer every requirement in Sections III to V with Yes, Partial or No and a short explanation.
+
+C. Proposals must include two references from retail or e-commerce customers.
+
+VIII. EVALUATION CRITERIA
+
+A. Fit to requirements: 40 points.
+
+B. Total cost over two years: 25 points.
+
+C. Implementation plan and migration approach: 20 points.
+
+D. References: 15 points.

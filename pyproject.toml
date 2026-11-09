@@ -22,7 +22,7 @@ dependencies = [
 [project.optional-dependencies]
 # Fallback if OpenRouter embeddings are not used (open decision, week 1)
 local-embeddings = ["sentence-transformers>=3.0"]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "reportlab>=4.0"]   # reportlab builds the mock RFP PDFs (data/mock_rfps)
 
 [tool.setuptools.packages.find]
 include = ["src*", "eval*"]

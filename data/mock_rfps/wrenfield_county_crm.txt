@@ -1,0 +1,119 @@
+% Wrenfield County
+% Request for Proposals RFP WC-27-014
+% Countywide Constituent Services CRM
+
+Issued by Wrenfield County Purchasing Division on behalf of the Board of Commissioners
+
+Issue date: November 6, 2026
+
+Proposals due: December 4, 2026 at 2:00 PM Eastern Time
+
+Fictional RFP created to demonstrate the Tallyhouse RFP Review system. Wrenfield County is not a real place, and any resemblance to a real organization is coincidental.
+
+===PAGE===
+
+I. INTRODUCTION
+
+A. Background. Wrenfield County serves about 640,000 residents. Five departments handle constituent requests: the Board of Commissioners' offices, Public Health, Human Services, the Sheriff's Office civil and records division, and Roads and Bridges. The County currently uses Salesforce Service Cloud for the Commissioners' offices and Roads and Bridges, under a contract that ends June 30, 2027. The other departments use spreadsheets and email.
+
+B. Purpose. The County seeks one constituent services CRM for all five departments, so that a resident's requests, cases and records requests are in one place.
+
+C. Users. The system will be used by approximately 120 County staff users.
+
+D. Budget. The County has budgeted $75,000 per year for subscription fees. Implementation will be funded separately.
+
+E. Contract Term. The initial term is five years.
+
+II. RFP SCHEDULE
+
+A. RFP issued: November 6, 2026.
+
+B. Mandatory pre-proposal meeting: November 16, 2026 at 1:00 PM Eastern Time. Vendors that do not attend will not be considered.
+
+C. Written questions due: November 20, 2026.
+
+D. Proposals due: December 4, 2026 at 2:00 PM Eastern Time.
+
+E. Contract start: April 1, 2027.
+
+III. SCOPE OF WORK
+
+A. Constituent Records and Cases
+
+1. The system must keep one record for each constituent, showing all of their requests, cases and contacts with any department.
+
+2. Staff must be able to manage cases with service level targets and escalations.
+
+3. The system must support custom objects for department-specific records, such as inspection results and permit applications.
+
+4. Administrators must be able to build workflows and forms without code.
+
+B. Resident Access
+
+1. Residents must be able to submit and track requests through a web portal and mobile app.
+
+2. The resident portal must meet WCAG 2.1 Level AA.
+
+C. Public Health
+
+1. Public Health staff will record protected health information about clients. The vendor must comply with HIPAA and sign the County's Business Associate Agreement before go-live.
+
+D. Sheriff's Office
+
+1. The Sheriff's Office will store criminal history and records request information in the system. The solution must be CJIS compliant and meet the FBI CJIS Security Policy.
+
+2. Records requests must be tracked with statutory response deadlines.
+
+E. Integrations
+
+1. The system must integrate with the County's Microsoft 365 email and calendar.
+
+2. The system must support single sign-on through SAML 2.0.
+
+3. The system must import data from the County's existing Salesforce Service Cloud org, including about 300,000 cases.
+
+IV. TECHNICAL AND SECURITY REQUIREMENTS
+
+A. All County data must be stored in the United States.
+
+B. The vendor must provide a current SOC 2 Type II report.
+
+C. FedRAMP authorization is preferred but not required.
+
+D. Data must be encrypted at rest and in transit.
+
+E. The system must keep audit logs of user actions and record changes.
+
+V. IMPLEMENTATION AND SUPPORT
+
+A. The system must be live for all five departments within 12 weeks of contract start.
+
+B. The vendor must provide onsite training at the County offices.
+
+C. Support must be available 24 hours a day, 7 days a week for critical issues.
+
+VI. PROPOSAL REQUIREMENTS
+
+A. Proposals must be delivered in a sealed envelope to the Wrenfield County Purchasing Division by the due date, with one original and five copies.
+
+B. Proposals must respond to every requirement in Sections III to V.
+
+C. Vendors must include three references from county governments.
+
+D. Vendors must attend the mandatory pre-proposal meeting.
+
+VII. EVALUATION CRITERIA
+
+A. Compliance and security: 30 points.
+
+B. Functional fit: 30 points.
+
+C. Price: 25 points.
+
+D. Experience and references: 15 points.
+
+VIII. CONTRACT TERMS
+
+A. The vendor must accept the County's standard terms and conditions without exception.
+
+B. The vendor must carry cyber liability insurance of at least $5 million.

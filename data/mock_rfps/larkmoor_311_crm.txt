@@ -1,0 +1,185 @@
+% City of Larkmoor
+% Request for Proposals RFP 2026-311
+% Resident Request Management (311 CRM) Software
+
+Issued by the City of Larkmoor, Office of Innovation and Technology
+
+Issue date: November 2, 2026
+
+Proposals due: December 11, 2026 at 3:00 PM Central Time
+
+Fictional RFP created to demonstrate the Tallyhouse RFP Review system. The City of Larkmoor is not a real place, and any resemblance to a real organization is coincidental.
+
+===PAGE===
+
+I. INTRODUCTION
+
+A. Background. The City of Larkmoor serves about 186,000 residents. Residents report potholes, missed trash pickups, streetlight outages, graffiti and code violations by phone, email and a web form. Today these requests are tracked in a home-grown Microsoft Access database and shared email inboxes that the IT department has maintained since 2009. The City has never used a commercial CRM, and requests are often lost between departments.
+
+B. Purpose. The City seeks a cloud-based 311 and resident request management system that lets residents report issues on any channel, routes each request to the right department, and shows staff and residents where every request stands.
+
+C. Users. The system will be used by approximately 40 staff users across Public Works, Solid Waste, Code Enforcement, Parks and the City Manager's Office. Residents will use the portal and mobile app without staff licenses.
+
+D. Budget. The City has budgeted $95,000 per year for software subscription fees. A separate one-time budget of $60,000 is available for implementation, data migration and training.
+
+E. Contract Term. The initial term is three years, with two optional one-year renewals.
+
+II. RFP SCHEDULE
+
+A. RFP issued: November 2, 2026.
+
+B. Optional virtual pre-proposal meeting: November 13, 2026 at 10:00 AM Central Time.
+
+C. Written questions due: November 20, 2026.
+
+D. Answers to questions posted: November 25, 2026.
+
+E. Proposals due: December 11, 2026 at 3:00 PM Central Time.
+
+F. Finalist demonstrations: week of January 11, 2027.
+
+G. Contract start: February 1, 2027.
+
+III. SCOPE OF WORK
+
+A. Resident Request Intake
+
+1. Residents must be able to submit requests through a web portal, iOS and Android mobile apps, text message (SMS) and email.
+
+2. Each request must receive a tracking number, and residents must be able to check its status online and receive updates by email or text message.
+
+3. The resident portal and mobile app must meet WCAG 2.1 Level AA accessibility standards.
+
+4. The resident portal should be available in English and Spanish.
+
+5. Residents must be able to attach photos to a request.
+
+B. Routing and Case Management
+
+1. Requests must be routed automatically by request type, department and council district.
+
+2. Staff must be able to manage each request as a case with service level targets, escalation rules and alerts when a target is missed.
+
+3. Administrators must be able to change workflows, request types and forms without writing code.
+
+4. The system must flag likely duplicate requests and let staff merge them.
+
+5. Council member offices must be able to see and report on requests in their own district.
+
+C. Mapping
+
+1. Requests must be geocoded and shown on a map, using the City's existing Esri ArcGIS environment.
+
+D. Reporting
+
+1. The system must provide dashboards and a report builder showing request volume, open requests and time to close by department and district.
+
+2. Staff must be able to schedule reports to be emailed to department heads.
+
+E. Knowledge Base
+
+1. Call takers must be able to search an internal knowledge base of approved answers, and residents must be able to search public answers on the portal.
+
+F. Integrations
+
+1. The system must support single sign-on with the City's Microsoft Entra ID.
+
+2. The system must integrate with Microsoft 365 email and calendar.
+
+3. The vendor must provide a documented REST API for integration with other City systems.
+
+4. The system should connect to the City's existing Cisco phone system so that call takers can create a request from an incoming call.
+
+G. Field Crews
+
+1. Field crews must be able to view, update and close requests from a mobile app on iOS and Android.
+
+IV. TECHNICAL AND SECURITY REQUIREMENTS
+
+A. The solution must be cloud-hosted software as a service, with all City data, including backups, stored in the United States.
+
+B. The vendor must provide a current SOC 2 Type II report.
+
+C. City data must be encrypted at rest with AES-256 or equivalent and in transit with TLS 1.2 or higher.
+
+D. The system must support multi-factor authentication and role-based access controls down to the field level.
+
+E. The system must keep audit logs of user and administrator actions, including logins, record changes and exports.
+
+F. The vendor must guarantee at least 99.9% monthly uptime, with service credits when the guarantee is missed.
+
+G. The vendor must notify the City of a confirmed security incident affecting City data within 72 hours.
+
+H. StateRAMP authorization is preferred but not required.
+
+I. The City owns all of its data. The vendor must let the City export all data in a standard format at any time and for 30 days after the contract ends.
+
+V. IMPLEMENTATION, TRAINING AND SUPPORT
+
+A. The system must go live within 16 weeks of contract start.
+
+B. The vendor must migrate about 210,000 historical requests from the City's Access database.
+
+C. The vendor must provide administrator and end-user training, including train-the-trainer sessions and recorded videos.
+
+D. Support must be available at least Monday to Friday, 7:00 AM to 6:00 PM Central Time, by phone, email and a web portal.
+
+E. The vendor must respond to critical issues, where the system is down or unusable, within 4 hours.
+
+F. The vendor should assign a named customer success manager to the City.
+
+VI. PROPOSAL REQUIREMENTS
+
+A. Proposals must be submitted through the City's eProcurement portal by the due date. Paper and emailed proposals will not be accepted.
+
+B. Proposals must include a cover letter, a company overview, a response to each requirement in Sections III to V stating Meets, Partially meets or Does not meet with an explanation, an implementation plan and timeline, and three references from public-sector customers.
+
+C. Proposals must not exceed 40 pages, not counting the pricing form and attachments.
+
+D. Vendors must complete the pricing form in Exhibit A.
+
+E. Vendors must complete and sign the Vendor Certification in Exhibit B.
+
+VII. EVALUATION CRITERIA
+
+A. Functional fit: 35 points.
+
+B. Implementation approach and support: 20 points.
+
+C. Price: 20 points.
+
+D. Security and hosting: 15 points.
+
+E. References and experience: 10 points.
+
+F. The City may invite up to three finalists to give a scripted demonstration.
+
+VIII. CONTRACT TERMS
+
+A. The selected vendor must accept the City's standard Software as a Service Agreement or list any exceptions in its proposal. Exceptions may affect the evaluation.
+
+B. The vendor must carry general liability insurance of at least $1 million per occurrence and cyber liability insurance of at least $5 million.
+
+C. Annual price increases after the first year must be capped at 5%.
+
+===PAGE===
+
+EXHIBIT A - PRICING FORM
+
+A. Annual subscription for 40 staff users, unlimited residents, for years one, two and three.
+
+B. One-time implementation fee, including data migration.
+
+C. Training fees, if not included in implementation.
+
+D. Any optional modules or add-on costs, listed separately.
+
+EXHIBIT B - VENDOR CERTIFICATION
+
+A. The vendor certifies that the information in its proposal is accurate and complete.
+
+B. The vendor certifies that it is not debarred or suspended from doing business with any government agency.
+
+C. The vendor certifies that it has not colluded with any other vendor in preparing its proposal.
+
+D. Signed by an officer authorized to bind the vendor, with name, title and date.

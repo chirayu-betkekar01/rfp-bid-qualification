@@ -31,7 +31,7 @@ from src.parse.sections import ParsedDocument
 FACTS_PROMPT = "rfp_facts_v1"
 MAX_TOKENS = 1_500
 QUOTE_CHARS = 300
-TEST_RFPS = ROOT / "data" / "test_rfps"
+RFP_FOLDERS = [ROOT / "data" / "test_rfps", ROOT / "data" / "mock_rfps"]
 
 Incumbent = Literal["none", "legacy", "hubspot", "zendesk", "salesforce", "microsoft_dynamics", "other", "unknown"]
 
@@ -168,7 +168,7 @@ def save_facts(conn: psycopg.Connection, rfp_id: int, result: FactsResult) -> in
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--rfp", type=int, required=True, help="rfp id")
-    parser.add_argument("--pdf", type=Path, help="the RFP's PDF (default: data/test_rfps/<source file>)")
+    parser.add_argument("--pdf", type=Path, help="the RFP's PDF (default: <source file> in data/test_rfps or data/mock_rfps)")
     args = parser.parse_args()
 
     load_dotenv(ROOT / ".env")
@@ -180,7 +180,8 @@ def main() -> None:
         row = conn.execute("select source_file from rfp where id = %s", (args.rfp,)).fetchone()
         if not row:
             raise SystemExit(f"No rfp with id {args.rfp}.")
-        doc = parse_pdf(args.pdf or TEST_RFPS / row[0])
+        pdf = args.pdf or next((d / row[0] for d in RFP_FOLDERS if (d / row[0]).exists()), RFP_FOLDERS[0] / row[0])
+        doc = parse_pdf(pdf)
         result = read_facts(doc, LLMClient(cache_dir=CACHE_DIR), model)
         save_facts(conn, args.rfp, result)
 

@@ -29,6 +29,19 @@ Each RFP has a navigation column on the left (tabs across the top on a phone):
   unanswered items.
 - **Go / no-go** (`/rfps/<id>/report`): the score, report and decision below.
 
+## Demo RFPs
+
+Three fictional RFPs in `data/mock_rfps/` (plain-text sources plus PDFs, rebuilt with
+`python -m eval.build_mock_rfps`) each show a different outcome. They hold no real contact
+details, so unlike `data/test_rfps/` they are committed. Load one with
+`python -m src.extract.run data/mock_rfps/<name>.pdf`, then `python -m src.suggest.run --rfp <id>`.
+
+| RFP | Story | Answered as the AI suggests |
+|---|---|---|
+| City of Larkmoor, 311 CRM | Strong fit, budget above list, home-grown system | 78 with "pre-proposal meeting only": bid |
+| Wrenfield County, constituent CRM | Mandatory HIPAA BAA and CJIS, Salesforce incumbent, budget 57% below list | 40, two possible hard fails to confirm: no-bid |
+| Quillon Outdoor Supply, customer service | Commercial, Zendesk incumbent, telephony via Twilio | 64 with no contact (no-bid); 79 if we spoke with the buyer (bid) |
+
 ## Signing in (`/login`)
 
 A demo sign-in stands in for real accounts. Each person on the fictional team (from
