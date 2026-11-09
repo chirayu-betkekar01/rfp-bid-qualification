@@ -328,7 +328,7 @@ export async function deleteRequirement(
 
 export function checkReviewer(reviewer: string): string {
   const name = (reviewer ?? "").trim();
-  if (!name) throw new CheckpointError("Choose who you are before making changes.");
+  if (!name) throw new CheckpointError("Sign in before making changes.");
   if (["ai", "system"].includes(name.toLowerCase())) {
     throw new CheckpointError("Changes must be made by a named person.");
   }

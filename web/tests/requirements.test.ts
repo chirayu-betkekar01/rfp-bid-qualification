@@ -124,7 +124,7 @@ describe.skipIf(!url)("line-item list", () => {
   it("only accepts changes from a named person", async () => {
     const id = await rfp();
     const s = await section(id, "IV");
-    await expect(addRequirement(db, id, row(s), "")).rejects.toThrow("Choose who you are");
+    await expect(addRequirement(db, id, row(s), "")).rejects.toThrow("Sign in before making changes");
     await expect(addRequirement(db, id, row(s), "AI")).rejects.toThrow("named person");
   });
 

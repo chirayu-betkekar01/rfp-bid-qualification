@@ -314,7 +314,7 @@ function Guide({ rfp, actor, counts, suggestable, recipients, pending, onSuggest
   if (!actor) {
     return (
       <div className={`${box} border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200`}>
-        Choose who you are at the top of the page to make changes. Every change is saved with your name.
+        Sign in to make changes. Every change is saved with your name.
       </div>
     );
   }

@@ -36,7 +36,7 @@ export function ContributorsView({ contributors, roles, canEdit }: {
 
       {!canEdit && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-          Choose who you are at the top of the page to change the team.
+          Sign in to change the team.
         </p>
       )}
       {error && (

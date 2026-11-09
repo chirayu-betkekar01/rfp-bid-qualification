@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { answerMyself, assignItem, assignItems, assignSection, assignSuggested } from "@/lib/assignments";
 import { inTransaction, pool } from "@/lib/db";
@@ -9,25 +10,43 @@ import {
   forwardItems, nudge, reassignedMessage, saveDraft, sendOut, submitAnswers,
 } from "@/lib/experts";
 import {
-  addContributor, findPersonByToken, getPerson, setContributorActive, updateContributor, type ContributorInput,
-  type Person,
+  addContributor, findPersonByToken, setContributorActive, updateContributor, type ContributorInput, type Person,
 } from "@/lib/people";
 import { decide, setFact, setGapCheck, type FactName, type FactValue } from "@/lib/report";
-import { ACTOR_COOKIE, getActor } from "@/lib/reviewer";
+import { checkCredentials, getActor, landingPage } from "@/lib/reviewer";
 import {
   CheckpointError, addRequirement, deleteRequirement, editRequirement, mergeRequirements, rfpOf,
   type Answer, type RequirementInput,
 } from "@/lib/requirements";
+import { createSessionValue, sessionSecret, SESSION_COOKIE } from "@/lib/session";
 import { deliver, type Message } from "@/lib/slack";
 import { loadVendor } from "@/lib/vendor";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
-export async function setActor(personId: number): Promise<ActionResult> {
-  return run(async () => {
-    const person = await getPerson(pool(), personId);
-    (await cookies()).set(ACTOR_COOKIE, String(person.id), { httpOnly: true, sameSite: "lax", path: "/" });
-  }, { needsActor: false });
+export type SignInState = { error: string | null; email: string };
+
+/** Demo sign-in with an email and the shared password. On success, goes to the page asked for or the person's start page. */
+export async function signIn(_previous: SignInState, form: FormData): Promise<SignInState> {
+  const email = String(form.get("email") ?? "");
+  let destination: string;
+  try {
+    const person = await checkCredentials(pool(), email, String(form.get("password") ?? ""));
+    const { value, expires } = await createSessionValue(person.id, sessionSecret());
+    (await cookies()).set(SESSION_COOKIE, value, {
+      httpOnly: true, sameSite: "lax", path: "/", expires, secure: process.env.NODE_ENV === "production",
+    });
+    destination = landingPage(person, String(form.get("next") ?? "") || null);
+  } catch (error) {
+    if (error instanceof CheckpointError) return { error: error.message, email };
+    throw error;
+  }
+  redirect(destination);
+}
+
+export async function signOut(): Promise<void> {
+  (await cookies()).delete(SESSION_COOKIE);
+  redirect("/login");
 }
 
 export async function addRow(rfpId: number, input: RequirementInput, reason?: string) {
@@ -168,13 +187,12 @@ export async function answerRowMyself(requirementId: number, answer: Answer, not
   return run((actor) => inTransaction((db) => answerMyself(db, requirementId, actor, answer, note)));
 }
 
-/** Run a change as the person using the manager screen; rule breaks come back as messages. */
-async function run(change: (actor: Person) => Promise<unknown>,
-                   { needsActor = true }: { needsActor?: boolean } = {}): Promise<ActionResult> {
+/** Run a change as whoever is signed in; rule breaks come back as messages. */
+async function run(change: (actor: Person) => Promise<unknown>): Promise<ActionResult> {
   try {
     const actor = await getActor();
-    if (needsActor && !actor) throw new CheckpointError("Choose who you are before making changes.");
-    await change(actor as Person);
+    if (!actor) throw new CheckpointError("Your session has ended. Sign in again to make changes.");
+    await change(actor);
   } catch (error) {
     if (error instanceof CheckpointError) return { ok: false, error: error.message };
     throw error;

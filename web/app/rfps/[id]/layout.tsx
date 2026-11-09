@@ -4,6 +4,7 @@ import { RfpNav } from "@/components/rfp-nav";
 import { pool } from "@/lib/db";
 import { listPeople } from "@/lib/people";
 import { getRfp } from "@/lib/requirements";
+import { requireActor } from "@/lib/reviewer";
 
 export default function RfpLayout({ children, params }: LayoutProps<"/rfps/[id]">) {
   return (
@@ -19,6 +20,7 @@ export default function RfpLayout({ children, params }: LayoutProps<"/rfps/[id]"
 async function Nav({ params }: Pick<LayoutProps<"/rfps/[id]">, "params">) {
   const rfpId = Number((await params).id);
   if (!Number.isInteger(rfpId)) return null;
+  await requireActor();
   const db = pool();
   const [rfp, people] = await Promise.all([getRfp(db, rfpId), listPeople(db)]);
   if (!rfp) return null;

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import { pool } from "@/lib/db";
 import { listRfps } from "@/lib/requirements";
+import { requireActor } from "@/lib/reviewer";
 
 export default function Home() {
   return (
@@ -19,6 +20,7 @@ export default function Home() {
 }
 
 async function RfpList() {
+  await requireActor();
   const rfps = await listRfps(pool());
   if (rfps.length === 0) {
     return (

@@ -29,6 +29,21 @@ Each RFP has a navigation column on the left (tabs across the top on a phone):
   unanswered items.
 - **Go / no-go** (`/rfps/<id>/report`): the score, report and decision below.
 
+## Signing in (`/login`)
+
+A demo sign-in stands in for real accounts. Each person on the fictional team (from
+`supabase/seed.sql`) signs in with an email made from their name, such as
+`morgan.lee@tallyhouse.demo`, and one shared password, `tallyhouse`. The sign-in page lists every
+account beside the form: click a row to fill it in, or **Sign in** to go straight in.
+
+- The proposal manager lands on the RFP list; everyone else lands on the line items waiting for
+  them. A link opened while signed out comes back to that page after signing in.
+- The session is a signed cookie (HMAC, `lib/session.ts`), so changing it doesn't let you become
+  someone else. Set `SESSION_SECRET` in `.env` to keep people signed in across server restarts.
+- `proxy.ts` sends anyone without a session to `/login`; pages check the signature. Personal links
+  (`/r/<token>`) and the RFP PDFs still open without signing in, so Slack links keep working.
+- Whoever is signed in is the name saved with every change.
+
 ## Line items (`/rfps/<id>/items`)
 
 - Line items are grouped by the RFP's real sections (IV, Exhibit B, ...); click one to see its page.
@@ -86,9 +101,6 @@ Each RFP has a navigation column on the left (tabs across the top on a phone):
 
 Set `SLACK_WEBHOOK_URL` in the repo-root `.env` to an incoming webhook for a demo channel. Without
 it, messages are still written to the `notification` table and shown as "not sent".
-
-There is no login yet: pick who you are under **Acting as**. The demo team is fictional and comes
-from `supabase/seed.sql`.
 
 ## Tests
 

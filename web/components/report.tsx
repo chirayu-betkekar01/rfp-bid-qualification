@@ -236,7 +236,7 @@ export function DecisionForm({ rfpId, recommendation, canDecide, blocked, canEdi
   return (
     <form className="space-y-3 px-4 py-3" onSubmit={(e) => { e.preventDefault(); if (choice) act(() => decideGoNoGo(rfpId, choice, reason)); }}>
       {blocked && <p className="text-sm text-zinc-600 dark:text-zinc-300">{blocked}</p>}
-      {!canEdit && <p className="text-sm text-zinc-600 dark:text-zinc-300">Choose who you are (top right) to record the decision.</p>}
+      {!canEdit && <p className="text-sm text-zinc-600 dark:text-zinc-300">Sign in to record the decision.</p>}
       <div className="flex flex-wrap gap-2">
         {(["bid", "no_bid"] as const).map((d) => (
           <button key={d} type="button" disabled={disabled} aria-pressed={choice === d} onClick={() => setChoice(d)}
