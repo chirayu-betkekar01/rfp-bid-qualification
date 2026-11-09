@@ -21,6 +21,14 @@ TEST_RFPS = {
     "utep_rfp_724-2605.pdf":
         "https://www.utep.edu/purchasing-and-general-services/pgs-departments/purchasing/RFPs/"
         "Plannning-Scheduling-Software---RFP-724-2605-JBT.pdf",
+    # Extra CRM / 311 RFPs (no answer key): checks the pipeline beyond the documents it was tuned on.
+    "ogden_311_crm.pdf":
+        "https://www.ogdencity.gov/DocumentCenter/View/30791/311-CRM-Software-RFP_FINAL-10-09-2024",
+    "providence_crm_311.pdf":
+        "https://www.providenceri.gov/wp-content/uploads/2023/08/"
+        "PVD23-136-IT-RFP-Constituent-Relationships-Software-CRM-with-311-Funct-MT-41871.pdf",
+    "palm_beach_tax_crm.pdf": "https://www.pbctax.gov/wp-content/uploads/2024/09/PBTC-CRM-ITN-2024-001.pdf",
+    "kern_county_crm.pdf": "https://itsapps.kerncounty.com/iframed/CMS/rfp/uploaded_file/901.pdf",
 }
 
 
