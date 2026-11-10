@@ -11,7 +11,13 @@ const nextConfig: NextConfig = {
   // fictional demo RFP PDFs. Trace from the repo root so a deployment (Vercel) includes them.
   outputFileTracingRoot: repoRoot,
   outputFileTracingIncludes: {
-    "/**": ["../config/vendor.yaml", "../data/mock_rfps/*.pdf"],
+    "/**": [
+      "../config/vendor.yaml",
+      "../data/mock_rfps/*.pdf",
+      // Next 16.4's server setup requires this at startup, but its minimal-server trace leaves it
+      // out, so Vercel functions crashed with "Cannot find module '../dev/browser-logs/file-logger'".
+      "./node_modules/next/dist/server/dev/browser-logs/*.js",
+    ],
   },
   // Never ship the real test RFPs (buyer contact details, rule 8) or secrets.
   outputFileTracingExcludes: {
