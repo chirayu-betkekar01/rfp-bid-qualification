@@ -17,6 +17,8 @@ const globalForSecret = globalThis as unknown as { sessionSecret?: string };
 export function sessionSecret(): string {
   const configured = process.env.SESSION_SECRET;
   if (configured) return configured;
+  // A deployment runs many server instances; a secret per instance would sign people out at random.
+  if (process.env.VERCEL) throw new Error("Set SESSION_SECRET in the deployment's environment variables.");
   globalForSecret.sessionSecret ??= crypto.randomUUID() + crypto.randomUUID();
   return globalForSecret.sessionSecret;
 }
