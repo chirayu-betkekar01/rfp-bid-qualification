@@ -35,3 +35,6 @@ data/test_rfps/*
 
 # LLM call log (local only)
 logs/
+
+# Database CA certificates (downloaded from Supabase; set as DATABASE_SSL_CA when deploying)
+certs/
