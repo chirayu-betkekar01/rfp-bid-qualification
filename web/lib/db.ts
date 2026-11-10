@@ -21,9 +21,18 @@ const LOCAL = /@(localhost|127\.0\.0\.1)(:|\/)/;
  */
 function sslFor(url: string) {
   if (LOCAL.test(url)) return false;
-  // Accept the PEM with real line breaks or with "\n" escapes (some env editors flatten it).
-  const ca = process.env.DATABASE_SSL_CA?.replace(/\\n/g, "\n");
+  const ca = caFrom(process.env.DATABASE_SSL_CA);
   return { rejectUnauthorized: true, ...(ca ? { ca } : {}) };
+}
+
+/**
+ * Accept the PEM however an env editor saved it: real line breaks or "\n" escapes, and with or
+ * without the quotes from a pasted .env line. A quoted PEM is unreadable, and TLS then fails
+ * with "self-signed certificate in certificate chain".
+ */
+export function caFrom(value: string | undefined): string | undefined {
+  const pem = value?.trim().replace(/^(["'])([\s\S]*)\1$/, "$2").replace(/\\n/g, "\n").trim();
+  return pem || undefined;
 }
 
 // pg reads sslmode from the URL, which would override the settings above.
